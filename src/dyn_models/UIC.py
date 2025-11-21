@@ -1,13 +1,16 @@
 from .blocks import *
+import src.utility_functions as dps_uf
 
 class UIC_sig(DAEModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        fix_idx = self.par['V_n'] == 0
+        bus_idx = dps_uf.lookup_strings(self.par['bus'], self.sys_par['bus_names'])
+        self.par['V_n'][fix_idx] = self.sys_par['bus_v_n'][bus_idx][fix_idx]
         self.bus_idx = np.array(np.zeros(self.n_units), dtype=[(key, int) for key in self.bus_ref_spec().keys()])
         self.bus_idx_red = np.array(np.zeros(self.n_units), dtype=[(key, int) for key in self.bus_ref_spec().keys()])
         
-
     def load_flow_pv(self):
         return self.bus_idx['terminal'], -self.par['p_ref']*self.par['S_n'], self.par['v_ref']
 
@@ -100,7 +103,8 @@ class UIC_sig(DAEModel):
         X = self.local_view(x_0)
 
         v_t = v_0[self.bus_idx_red['terminal']]
-        current = np.conj(S/v_t)
+        S_local = S/ par['S_n'] # local pu
+        current = np.conj(S_local/v_t)
         vi = v_t + 1j*current*par['xf']
         S_internal = vi * np.conj(current)
 
@@ -114,8 +118,8 @@ class UIC_sig(DAEModel):
 
         print('vi_x init', X['vi_x'])
         print('vi_y init', X['vi_y'])
-        print('p_ref init', S.real)
-        print('q_ref init', S.imag)
+        print('p_ref init', S_internal.real)
+        print('q_ref init', S_internal.imag)
         print('p_e init', self.p_e(x_0, v_0))
         print('q_e init', self.q_e(x_0, v_0))
         print('v_ref init', abs(vi))
@@ -126,11 +130,14 @@ class UIC_sig(DAEModel):
         par = self.par
         idx_bus = self.bus_idx['terminal']
         bus_v_n = self.sys_par['bus_v_n'][idx_bus]
-        Y = 1/(1j*par['xf'])
+        z_base_global = bus_v_n ** 2 / self.sys_par['s_n']
+        z_base_local = par['V_n'] ** 2 / par['S_n']
+        z_local = 1j*par['xf']
+        z_global = z_local*z_base_local/z_base_global
+        Y = 1/z_global
         return Y, (idx_bus,)*2
 
     def v_t(self, x, v):
-        """Terminal voltage"""
         return v[self.bus_idx_red['terminal']]
 
     def v_q(self,x,v):
