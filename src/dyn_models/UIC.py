@@ -38,17 +38,19 @@ class UIC_sig(DAEModel):
         vi = X['vi_x'] + 1j*X['vi_y']
 
         i_ref = np.conj(s_ref/vi) 
+        i_max_pu = 1.2  # 20% overrating 
+        i_ref_clamped = np.minimum(abs(i_ref), i_max_pu) * np.exp(1j*np.angle(i_ref))
         i_a = self.i_a(x, v)
         theta = np.angle(vi, deg=False)
         
-        i_error = (i_ref - i_a)
+        i_error = (i_ref_clamped - i_a)
         v_error = (v_ref - abs(vi))*np.exp(1j*(theta))
 
-        dvi = 1j*100*np.pi*par['Ki']*i_error+100*np.pi*par['Kv']*v_error +1j*vi*X['x_filter']*par['perfect_tracking']
+        dvi = 1j * 2 * np.pi * self.sys_par['f_n'] * par['Ki'] * i_error + 2 *np.pi *  self.sys_par['f_n'] * par['Kv'] * v_error + 1j * vi * X['x_filter'] * par['perfect_tracking']
         
         delta_omega = (dvi/vi).imag
         dX['x_filter'] = (1/par['T_filter'])*(delta_omega-X['x_filter'])
-        perfect_tracking_addition = 1j*vi*X['x_filter']*par['perfect_tracking']
+        perfect_tracking_addition = 1j * vi * X['x_filter'] * par['perfect_tracking']
         
         dX['vi_x'] = np.real(dvi)
         dX['vi_y'] = np.imag(dvi)
@@ -109,7 +111,7 @@ class UIC_sig(DAEModel):
         S_internal = vi * np.conj(current)
 
         self._input_values['v_ref'] = abs(vi)
-        self._input_values['p_ref'] = S_internal.real
+        self._input_values['p_ref'] = S_internal.real 
         self._input_values['q_ref'] = S_internal.imag
         
         X['vi_x'] = np.real(vi)
