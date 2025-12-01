@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 20  # Simulation time
+    t_end = 100 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     # Additional plot variables
     P_m_stored = []
     P_e_stored = []
+    P_ref_stored = []
     v_bus = []
-    I_stored = []
     omega_m_hist = []
     omega_e_hist = []
 
@@ -74,11 +74,19 @@ if __name__ == '__main__':
         [result_dict[tuple(desc)].append(state) for desc, state in zip(ps.state_desc, x)]
         # Store additional variables
 
-        I_gen = ps.y_bus_red_full[0, 1] * (v[0] - v[1])
-        I_stored.append(np.abs(I_gen))  # Stores magnitude of armature current
         v_bus.append(np.abs(v[0]))  # Stores magnitude of generator terminal voltage
-        P_m_stored.append(wt_model.P_m(x, v)[0])
-        P_e_stored.append(wt_model.P_e(x, v)[0])
+        # Convert powers to system base for consistent plotting
+        P_m_local = wt_model.P_m(x, v)[0]  # In WT local base
+        P_e_uic = wt_model.P_e(x, v)[0]  # From UIC.p_e() = s_e.real, where s_e = v_t*conj(i_a)
+        # s_e is in UIC local base: v_t (system base voltage) * i_a (UIC local base current) = UIC local base power
+        P_ref_sys = wt_model.P_ref(x, v)[0]  # Returns system base (WT local → system conversion)
+        # Get bases for conversions
+        sys_s_n = wt_model.sys_par['s_n']
+        uic_s_n = uic_model.par['S_n'][0]
+        # Convert to system base
+        P_m_stored.append(P_m_local * wt_model._local_to_sys[0])  # WT local → system
+        P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)  # UIC local → system
+        P_ref_stored.append(P_ref_sys)  # Already in system base
         wt_states = wt_model.local_view(x)
         omega_m_hist.append(wt_states['omega_m'][0])
         omega_e_hist.append(wt_states['omega_e'][0])
@@ -108,8 +116,8 @@ if __name__ == '__main__':
 
     ax[2].plot(t_stored, P_m_stored, label='P_m (mech)')
     ax[2].plot(t_stored, P_e_stored, label='P_e (elec)')
-    ax[2].plot(t_stored, I_stored, label='|I_bus|')
-    ax[2].set_ylabel('Power / Current (p.u.)')
+    ax[2].plot(t_stored, P_ref_stored, label='P_ref')
+    ax[2].set_ylabel('Power (p.u., system base)')
     ax[2].set_xlabel('Time (s)')
     ax[2].legend()
 

@@ -27,6 +27,10 @@ class UIC_sig(DAEModel):
     def input_list(self):
         """Input list for VSC"""
         return ['p_ref', 'q_ref', 'v_ref']
+    
+    def output_list(self):
+        """Output list for VSC"""
+        return ['S_n']
 
     def state_derivatives(self, dx, x, v):
         dX = self.local_view(dx)
