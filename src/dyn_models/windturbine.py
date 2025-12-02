@@ -36,15 +36,16 @@ class WindTurbine(DAEModel):
         # w_e = p/2 * w_m -> electrical speed is much larger than mechanical when assuming poles are 84
         # convert all WT params to pu:
         # H_m = J_m * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
+        omega_norm = self.par['omega_m_rated']
         omega_synchronous = 2 * np.pi * self.sys_par['f_n']
         poles = 2 # unsure about this, based on rated speed (ns = 120*f/p)
-        self.par['H_m'] = self.par['J_m'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
+        self.par['H_m'] = self.par['J_m'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # H_e = J_e * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
         self.par['H_e'] = self.par['J_e'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # K = K * omega_synchronous / (S_n * 1e6 * (p/2)**2)
-        self.par['K'] = 5 #self.par['K'] * omega_synchronous / (self.par['S_n'] * 1e6 * (poles/2)**2)
+        self.par['K'] = self.par['K'] * omega_norm / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # D = D * omega_synchronous / (S_n * 1e6 * (p/2)**2)
-        self.par['D'] = 10 #self.par['D'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
+        self.par['D'] = self.par['D'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
         
     def connections(self):
         return [
@@ -99,7 +100,7 @@ class WindTurbine(DAEModel):
         omega_e_mech_base = X['omega_e']/(poles/2)
         
         # Shaft coupling torque (spring-damper model) in mechanical base
-        T_shaft_mech = 5 * (X['theta_m'] - X['theta_e']) + 5 * (X['omega_m'] - omega_e_mech_base)
+        T_shaft_mech = 5 * (X['theta_m'] - X['theta_e']) + 2 * (X['omega_m'] - omega_e_mech_base)
         # Convert shaft torque to electrical base: P = T_shaft_mech * omega_m = T_shaft_elec * omega_e
         # So: T_shaft_elec = T_shaft_mech * (omega_m / omega_e) = T_shaft_mech / (poles/2)
         T_shaft_elec = T_shaft_mech / (poles/2)
@@ -108,8 +109,8 @@ class WindTurbine(DAEModel):
         # Mechanical side: d(omega_m)/dt = (1/H_m) * (Tm - T_shaft_mech)
         # Electrical side: d(omega_e)/dt = (1/H_e) * (T_shaft_elec - Te_elec)
         # Note: Te_elec opposes rotation (positive Pe = generation = braking torque)
-        dX['omega_m'] = (1/5) * (Tm - T_shaft_mech)
-        dX['omega_e'] = (1/1) * (T_shaft_elec - Te_elec)
+        dX['omega_m'] = (1/par['H_m']) * (Tm - T_shaft_mech)
+        dX['omega_e'] = (1/par['H_e']) * (T_shaft_elec - Te_elec)
         dX['theta_m'] = X['omega_m'] * 2 * np.pi * self.sys_par['f_n']
         dX['theta_e'] = X['omega_e']/(poles/2) * 2 * np.pi * self.sys_par['f_n']
 
@@ -150,6 +151,10 @@ class WindTurbine(DAEModel):
             print('  P_rated (WT local pu):', P_rated)
             print('cp: ', self.Cp(x, v))
             print('  Region:', 'MPPT' if P_ref < (P_rated - 0.02) else 'Power Limiting')
+            print('par[H_m]:', par['H_m'].astype(float))
+            print('par[H_e]:', par['H_e'].astype(float))
+            print('par[K]:', par['K'].astype(float))
+            print('par[D]:', par['D'].astype(float))
             #print('  omega_m_ref:', omega_m_ref)
 
         return
@@ -166,8 +171,7 @@ class WindTurbine(DAEModel):
         X['theta_e'] = 0.0
         # Initialize at a reasonable operating speed (e.g., 0.8 pu of rated)
         # This ensures we're in a valid operating region for MPT table lookup
-        omega_m_init_pu = 0.7  # Start at 80% of rated speed
-        omega_rated = par['omega_m_rated']  # base is rated mechanical speed in rad/s
+        omega_m_init_pu = par['omega_m_rated']/par['omega_m_rated']
         X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
         # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
         # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
@@ -206,7 +210,7 @@ class WindTurbine(DAEModel):
         for i in range(self.n_units):
             # X['omega_m'] is in per-unit (base = omega_m_rated in rad/s)
             # Convert to rad/s for MPT table lookup
-            rotor_speed_rad_s = X['omega_m'] * self.par['omega_m_rated'] # USIKKER PÅ DENNE
+            rotor_speed_rad_s = X['omega_m'] * self.par['omega_m_rated'] # pu speed * base speed -> rad/s
             
             # Lookup optimal power from MPPT curve (expects rotor speed in rad/s)
             P_mpt = float(self._mpt_interp(rotor_speed_rad_s))
@@ -253,7 +257,7 @@ class WindTurbine(DAEModel):
         # Calculate tip speed ratio
         # omega_m is stored in per-unit (base = omega_m_rated in rad/s)
         # Convert to rad/s for TSR calculation
-        omega_m_rad_s = X['omega_m'] * par['omega_m_rated'] # scale up to rad/s
+        omega_m_rad_s = X['omega_m'] * par['omega_m_rated'] # pu speed * base speed -> rad/s
         wind_speed = self.wind_speed(x, v) # m/s
         tip_speed_ratio = omega_m_rad_s * par['R'] / wind_speed if wind_speed > 0 else 0
         
@@ -307,7 +311,7 @@ class WindTurbine(DAEModel):
 
     def wind_speed(self, x, v):
         ## change to read from file
-        u_wind = 8.5 # m/s
+        u_wind = 9.5 # m/s
         return u_wind
 
     def P_below_rated_wind(self, x, v):
