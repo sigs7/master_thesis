@@ -38,8 +38,8 @@ def load():
 
         'windturbine': {
         'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',               'J_e',        'H_m',       'H_e',            'K',          'D',        'Kp_pitch',     'Ki_pitch',   'rho',   'R',  'P_rated', 'omega_m_rated', 'wind_rated'],
-            ['WT1', 'UIC1',  10,    22,          155000000.,            160.,          1,           1,            2317025352.,    9240560.,    60*3.14/180,   13*3.14/180,   1.225,  89.15,     1.05,       9.6,               10.6]
+            ['name', 'UIC', 'S_n', 'V_n',         'J_m',               'J_e',        'H_m',       'H_e',            'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'rho',   'R',  'P_rated', 'omega_m_rated', 'wind_rated'],
+            ['WT1', 'UIC1',  10,    22,          155000000.,            160.,          1.,           1.,            2317025352.,    9240560.,    60*3.14/180,   13*3.14/180,   0.1,    1.225,  89.15,     1.05,       9.6,               10.6]
                 # [-,-, , , Nm/rad, Nms/rad, rad/pu, rad/pu, kg/m^3, m, pu (system base power), RPM, m/s] from OpenFAST
                 # must have H_m and H_e placeholders for now
         ],

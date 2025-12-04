@@ -50,6 +50,7 @@ if __name__ == '__main__':
     v_bus = []
     omega_m_hist = []
     omega_e_hist = []
+    pitch_angle_hist = []
 
     # event_flag1 = True  # Create a different flag for each system event
     # endregion
@@ -90,6 +91,9 @@ if __name__ == '__main__':
         wt_states = wt_model.local_view(x)
         omega_m_hist.append(wt_states['omega_m'][0])
         omega_e_hist.append(wt_states['omega_e'][0])
+        # Pitch angle is stored as state variable
+        pitch_angle_val = wt_states['pitch_angle'][0] if 'pitch_angle' in wt_states.dtype.names else 0.0
+        pitch_angle_hist.append(float(pitch_angle_val * 180 / np.pi))  # Convert to degrees and ensure scalar
         # endregion
 
     # Convert dict to pandas dataframe
@@ -98,7 +102,7 @@ if __name__ == '__main__':
     # region Plotting
     t_stored = result[('Global', 't')]
 
-    fig, ax = plt.subplots(3, sharex=True, figsize=(9, 8))
+    fig, ax = plt.subplots(4, sharex=True, figsize=(9, 10))
     fig.suptitle('UIC internal voltage and wind turbine response')
 
     vi_x = result[(uic_name, 'vi_x')]
@@ -107,19 +111,27 @@ if __name__ == '__main__':
     ax[0].plot(t_stored, vi_mag, label='|v_i|')
     ax[0].plot(t_stored, np.array(v_bus), label='|v_bus|')
     ax[0].set_ylabel('Voltage (p.u.)')
-    ax[0].legend()
+    ax[0].legend(loc='center right')
+    ax[0].grid(True)
 
     ax[1].plot(t_stored, omega_m_hist, label='ω_m')
     ax[1].plot(t_stored, omega_e_hist, label='ω_e')
     ax[1].set_ylabel('Speed (p.u.)')
-    ax[1].legend()
+    ax[1].legend(loc='center right')
+    ax[1].grid(True)
 
     ax[2].plot(t_stored, P_m_stored, label='P_m (mech)')
     ax[2].plot(t_stored, P_e_stored, label='P_e (elec)')
     ax[2].plot(t_stored, P_ref_stored, label='P_ref')
     ax[2].set_ylabel('Power (p.u., system base)')
-    ax[2].set_xlabel('Time (s)')
-    ax[2].legend()
+    ax[2].legend(loc='center right')
+    ax[2].grid(True)
+
+    ax[3].plot(t_stored, pitch_angle_hist, label='Pitch angle', color='green')
+    ax[3].set_ylabel('Pitch angle (deg)')
+    ax[3].set_xlabel('Time (s)')
+    ax[3].legend(loc='center right')
+    ax[3].grid(True)
 
     plt.show(block = True)
     # endregion

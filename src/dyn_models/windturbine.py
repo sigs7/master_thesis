@@ -32,6 +32,11 @@ class WindTurbine(DAEModel):
         # 1 RPM = 2π/60 rad/s = π/30 rad/s
         RPM_to_rad_per_s = 2 * np.pi / 60  
         self.par['omega_m_rated'] = self.par['omega_m_rated'] * RPM_to_rad_per_s
+
+        """ self._pitch_angle = 0.0
+        self._pitch_rate_stored = 0.0  # Store pitch rate from previous time step
+        self._last_omega_m = None  # Track omega_m to detect new time step
+        self._pitch_rate_filtered = 0.0  # Filtered pitch rate for smoothing """
         
         # w_e = p/2 * w_m -> electrical speed is much larger than mechanical when assuming poles are 84
         # convert all WT params to pu:
@@ -39,9 +44,9 @@ class WindTurbine(DAEModel):
         omega_norm = self.par['omega_m_rated']
         omega_synchronous = 2 * np.pi * self.sys_par['f_n']
         poles = 2 # unsure about this, based on rated speed (ns = 120*f/p)
-        self.par['H_m'] = self.par['J_m'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
+        self.par['H_m'] = 0.5 * self.par['J_m'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # H_e = J_e * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
-        self.par['H_e'] = self.par['J_e'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
+        self.par['H_e'] = 0.5 * self.par['J_e'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # K = K * omega_synchronous / (S_n * 1e6 * (p/2)**2)
         self.par['K'] = self.par['K'] * omega_norm / (self.par['S_n'] * 1e6 * (poles/2)**2)
         # D = D * omega_synchronous / (S_n * 1e6 * (p/2)**2)
@@ -70,7 +75,7 @@ class WindTurbine(DAEModel):
         ]
 
     def state_list(self):
-        return ['omega_m', 'omega_e', 'theta_m', 'theta_e', 'pitch_angle']
+        return ['omega_m', 'omega_e', 'theta_m', 'theta_e', 'pitch_PI_integral_state', 'pitch_angle']
 
     def input_list(self):
         return ['P_e'] 
@@ -92,44 +97,62 @@ class WindTurbine(DAEModel):
         # Calculate torques
         # Mechanical torque: Tm = Pm / omega_m (in mechanical base)
         # Electrical torque: Te_elec = Pe / omega_e (in electrical base, positive Pe = generation = braking)
-        omega_m_safe = max(abs(X['omega_m']), 0.01)
-        omega_e_safe = max(abs(X['omega_e']), 0.01)
-        Tm = Pm / omega_m_safe if X['omega_m'] > 0 else 0
-        # Electrical torque in electrical base
-        Te_elec = Pe / omega_e_safe if X['omega_e'] > 0 else 0
+        Tm = Pm / X['omega_m'] if X['omega_m'] > 0 else 0
+        Te = Pe / X['omega_e'] if X['omega_e'] > 0 else 0
         omega_e_mech_base = X['omega_e']/(poles/2)
-        
-        # Shaft coupling torque (spring-damper model) in mechanical base
-        T_shaft_mech = 5 * (X['theta_m'] - X['theta_e']) + 2 * (X['omega_m'] - omega_e_mech_base)
-        # Convert shaft torque to electrical base: P = T_shaft_mech * omega_m = T_shaft_elec * omega_e
-        # So: T_shaft_elec = T_shaft_mech * (omega_m / omega_e) = T_shaft_mech / (poles/2)
-        T_shaft_elec = T_shaft_mech / (poles/2)
         
         # swing eqs for wt dynamics (two-mass model)
         # Mechanical side: d(omega_m)/dt = (1/H_m) * (Tm - T_shaft_mech)
         # Electrical side: d(omega_e)/dt = (1/H_e) * (T_shaft_elec - Te_elec)
         # Note: Te_elec opposes rotation (positive Pe = generation = braking torque)
-        dX['omega_m'] = (1/par['H_m']) * (Tm - T_shaft_mech)
-        dX['omega_e'] = (1/par['H_e']) * (T_shaft_elec - Te_elec)
+        dX['omega_m'] = (1/par['H_m']) * (Tm - (par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * 2 * np.pi * self.sys_par['f_n'] * (X['omega_m'] - omega_e_mech_base)))
+        dX['omega_e'] = (1/par['H_e']) * ((par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * 2 * np.pi * self.sys_par['f_n'] * (X['omega_m'] - omega_e_mech_base)) - Te)
         dX['theta_m'] = X['omega_m'] * 2 * np.pi * self.sys_par['f_n']
         dX['theta_e'] = X['omega_e']/(poles/2) * 2 * np.pi * self.sys_par['f_n']
 
-        """ dX['omega_m'] = (1/par['H_m']) * (Tm - par['K'] * (X['theta_m'] - X['theta_e']) - par['D'] * (X['omega_m'] - omega_e_mech_base))
-        dX['omega_e'] = (1/par['H_e']) * (Te + par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base))
-        dX['theta_m'] = X['omega_m'] * 2 * np.pi * self.sys_par['f_n']
-        dX['theta_e'] = X['omega_e']/(poles/2) * 2 * np.pi * self.sys_par['f_n'] """
-
-        if Pm < P_rated:  # Region 2: MPPT
-            # Keep pitch at optimal, 0?
-            dX['pitch_angle'] = - par['Ki_pitch'] * (0.0 - X['pitch_angle'])
-            X['pitch_angle'] -= par['Kp_pitch'] * (0.0 - X['pitch_angle'])
-        else:  # Region 3: Power limiting
-            # Active pitch control to regulate speed
-            omega_m_ref = Pe/(Pm/X['omega_m']) if Pm > 0.01 else X['omega_m']
-            dX['pitch_angle'] = - par['Ki_pitch'] * (omega_m_ref - X['omega_m'])
-            X['pitch_angle'] -= par['Kp_pitch'] * (omega_m_ref - X['omega_m'])
-            # ++ max pitch, max change of pitch
-
+        max_pitch = 70 * np.pi / 180  # 70 degrees max
+        min_pitch = 0.0  # 0 degrees min 
+        max_pitch_rate = 10 * np.pi / 180  # 10 deg/s max rate
+        omega_m_ref = 1.0  # Rated speed in pu
+        e_omega = X['omega_m'] - omega_m_ref
+        
+        pitch_reference = 0.0
+        # Region 2: MPPT (below rated)
+        # Determine integral derivative value first (calculate, don't assign yet)
+        if e_omega < -0.01:
+            # Region 2: MPPT (below rated) - reset integral
+            pitch_reference = 0.0
+            dX_pitch_integral = 0.0
+        else:  # e_omega >= -0.01 (at or above rated)
+            # Calculate controller output to check for anti-windup
+            PIctrl_integral_term = par['Ki_pitch'] * X['pitch_PI_integral_state']
+            PIctrl_proportional_term = par['Kp_pitch'] * e_omega
+            pitch_reference_unclamped = PIctrl_integral_term + PIctrl_proportional_term
+            
+            # Anti-windup -> stops integration term when reference is at limit to prevent over- and undershoots
+            if pitch_reference_unclamped >= max_pitch or pitch_reference_unclamped <= min_pitch:
+                dX_pitch_integral = 0.0  # Stop integrating when output hits limits
+            else:
+                dX_pitch_integral = e_omega  # Normal integration
+            
+            # Clamp pitch_reference to max and min pitch angle
+            pitch_reference = np.clip(pitch_reference_unclamped, min_pitch, max_pitch)
+        
+        # update integral state of PI control for pitch reference
+        dX['pitch_PI_integral_state'] = dX_pitch_integral
+        
+        ## Servo  
+        delta_pitch_angle = 1/par['T_pitch'] * (pitch_reference - X['pitch_angle'])
+        delta_pitch_angle = np.clip(delta_pitch_angle, -max_pitch_rate, max_pitch_rate) # limit rate of change in pitch angle
+        
+        """ # this should not be necessary as the checks above should prevent this
+        if X['pitch_angle'] >= max_pitch and delta_pitch_angle > 0:
+            delta_pitch_angle = 0.0  # Stop if at upper limit and trying to increase
+        elif X['pitch_angle'] <= min_pitch and delta_pitch_angle < 0:
+            delta_pitch_angle = 0.0  # Stop if at lower limit and trying to decrease """
+        
+        dX['pitch_angle'] = delta_pitch_angle
+        
         if not hasattr(self, '_debug_counter'):
             self._debug_counter = 0
         self._debug_counter += 1
@@ -143,8 +166,11 @@ class WindTurbine(DAEModel):
             print('dX[omega_e]:', dX['omega_e'])
             print('dX[theta_m]:', dX['theta_m'])
             print('dX[theta_e]:', dX['theta_e'])
+            print('dX[pitch_PI_integral_state]:', dX['pitch_PI_integral_state'])
+            print('  X[pitch_PI_integral_state]:', X['pitch_PI_integral_state'])
             print('dX[pitch_angle]:', dX['pitch_angle'])
             print('  X[pitch_angle]:', X['pitch_angle'])
+            print('  pitch_angle:', self._pitch_angle)
             print('  Pm (WT local pu):', Pm)
             print('  Pe (WT local pu):', Pe)
             print('  P_ref (UIC local pu):', P_ref)
@@ -166,17 +192,20 @@ class WindTurbine(DAEModel):
         # The connection will call P_e() which now returns system base
         self._input_values['P_e'] = self.P_e(x_0, v_0)  # System base (UIC.p_e() now returns system base)
         poles = 2 # change this later TODO
+        ideal_tsr_start = par['R'] * 1 / par['wind_rated']
+        start_omega_m_init = ideal_tsr_start * self.wind_speed(x_0, v_0) / (par['R']) # in rad/s
         
-        X['theta_m'] = 0.0
-        X['theta_e'] = 0.0
         # Initialize at a reasonable operating speed (e.g., 0.8 pu of rated)
         # This ensures we're in a valid operating region for MPT table lookup
-        omega_m_init_pu = par['omega_m_rated']/par['omega_m_rated']
+        omega_m_init_pu = start_omega_m_init / par['omega_m_rated'] * 0.8 # in pu
         X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
         # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
         # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
         X['omega_e'] = omega_m_init_pu * (poles/2)  # per-unit (normalized by omega_m_rated)
-        X['pitch_angle'] = 0.0
+        X['theta_m'] = 0.0
+        X['theta_e'] = 0.0
+        X['pitch_PI_integral_state'] = 0.0
+        self._pitch_angle = 0.0
 
         return
 
@@ -296,7 +325,10 @@ class WindTurbine(DAEModel):
         # Interpolate Cp value - pass as 1D array of length 2 for a single point
         # Convert to Python floats first to avoid any array issues
         tsr = float(tip_speed_ratio) if np.isscalar(tip_speed_ratio) else float(tip_speed_ratio.item())
-        pa = float(X['pitch_angle']*180/np.pi) if np.isscalar(X['pitch_angle']) else float(X['pitch_angle'].item()*180/np.pi)
+        # Use state variable pitch_angle (not _pitch_angle instance variable)
+        X = self.local_view(x)
+        pitch_angle_val = X['pitch_angle'] 
+        pa = float(pitch_angle_val*180/np.pi) if np.isscalar(pitch_angle_val) else float(pitch_angle_val.item()*180/np.pi)
         
         # Clamp values to be within grid bounds to avoid extrapolation returning fill_value (0)
         tsr_clamped = np.clip(tsr, self._cp_interp.grid[0].min(), self._cp_interp.grid[0].max())
@@ -311,7 +343,16 @@ class WindTurbine(DAEModel):
 
     def wind_speed(self, x, v):
         ## change to read from file
-        u_wind = 9.5 # m/s
+
+        u_wind = 8.0
+
+        if not hasattr(self, '_debug_counter'):
+            self._debug_counter = 0
+        self._debug_counter += 1
+        
+        if self._debug_counter >= 70000:
+            u_wind = 11.5
+    
         return u_wind
 
     def P_below_rated_wind(self, x, v):
