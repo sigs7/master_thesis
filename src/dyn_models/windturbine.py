@@ -32,6 +32,10 @@ class WindTurbine(DAEModel):
         # 1 RPM = 2π/60 rad/s = π/30 rad/s
         RPM_to_rad_per_s = 2 * np.pi / 60  
         self.par['omega_m_rated'] = self.par['omega_m_rated'] * RPM_to_rad_per_s
+        
+        # Initialize debug counter for wind speed changes
+        # Counter increments each time state_derivatives is called
+        self._debug_counter = 0
 
         """ self._pitch_angle = 0.0
         self._pitch_rate_stored = 0.0  # Store pitch rate from previous time step
@@ -64,6 +68,15 @@ class WindTurbine(DAEModel):
                 'output': 'p_e',
             },
             {
+                'input': 'S_n_UIC',
+                'source': {
+                    'container': 'vsc',
+                    'mdl': 'UIC_sig',
+                    'id': self.par['UIC'],
+                },
+                'output': 'S_n',
+            },
+            {
                 'output': 'P_ref',
                 'destination': {
                     'container': 'vsc',
@@ -78,7 +91,7 @@ class WindTurbine(DAEModel):
         return ['omega_m', 'omega_e', 'theta_m', 'theta_e', 'pitch_PI_integral_state', 'pitch_angle']
 
     def input_list(self):
-        return ['P_e'] 
+        return ['P_e', 'S_n_UIC'] 
 
     def output_list(self):
         return ['P_ref']
@@ -89,41 +102,32 @@ class WindTurbine(DAEModel):
         par = self.par
         poles = 2 # change this later TODO
         Pm = self.P_m(x, v)
-        Pe = self.P_e(x, v) * self.sys_par['s_n'] / par['S_n'] # UIC pu -> WT pu
+        Pe = self.P_e(x, v) * self.S_n_UIC(x, v) / par['S_n'] # UIC pu -> WT pu
         P_rated = par['P_rated']
-        P_ref = self.P_ref(x, v) * self.sys_par['s_n'] / par['S_n']  # P_ref is in UIC's local base (for communication with UIC)
-        # Convert P_ref from UIC's local base back to WT's local base for internal use
+        P_ref = self.P_ref(x, v) * self.S_n_UIC(x, v) / par['S_n']  # P_ref is in UIC local base 
         
-        # Calculate torques
-        # Mechanical torque: Tm = Pm / omega_m (in mechanical base)
-        # Electrical torque: Te_elec = Pe / omega_e (in electrical base, positive Pe = generation = braking)
         Tm = Pm / X['omega_m'] if X['omega_m'] > 0 else 0
         Te = Pe / X['omega_e'] if X['omega_e'] > 0 else 0
         omega_e_mech_base = X['omega_e']/(poles/2)
         
-        # swing eqs for wt dynamics (two-mass model)
-        # Mechanical side: d(omega_m)/dt = (1/H_m) * (Tm - T_shaft_mech)
-        # Electrical side: d(omega_e)/dt = (1/H_e) * (T_shaft_elec - Te_elec)
-        # Note: Te_elec opposes rotation (positive Pe = generation = braking torque)
+        # swing eqs for wt dynamics
         dX['omega_m'] = (1/par['H_m']) * (Tm - (par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * 2 * np.pi * self.sys_par['f_n'] * (X['omega_m'] - omega_e_mech_base)))
         dX['omega_e'] = (1/par['H_e']) * ((par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * 2 * np.pi * self.sys_par['f_n'] * (X['omega_m'] - omega_e_mech_base)) - Te)
         dX['theta_m'] = X['omega_m'] * 2 * np.pi * self.sys_par['f_n']
         dX['theta_e'] = X['omega_e']/(poles/2) * 2 * np.pi * self.sys_par['f_n']
 
+        # TODO Inputs for current WT?
         max_pitch = 70 * np.pi / 180  # 70 degrees max
         min_pitch = 0.0  # 0 degrees min 
         max_pitch_rate = 10 * np.pi / 180  # 10 deg/s max rate
         omega_m_ref = 1.0  # Rated speed in pu
         e_omega = X['omega_m'] - omega_m_ref
-        
         pitch_reference = 0.0
-        # Region 2: MPPT (below rated)
-        # Determine integral derivative value first (calculate, don't assign yet)
-        if e_omega < -0.01:
+
+        if e_omega < -0.05:
             # Region 2: MPPT (below rated) - reset integral
-            pitch_reference = 0.0
             dX_pitch_integral = 0.0
-        else:  # e_omega >= -0.01 (at or above rated)
+        else:  # Region 3: Power limiting (speed approaching rated)
             # Calculate controller output to check for anti-windup
             PIctrl_integral_term = par['Ki_pitch'] * X['pitch_PI_integral_state']
             PIctrl_proportional_term = par['Kp_pitch'] * e_omega
@@ -153,8 +157,6 @@ class WindTurbine(DAEModel):
         
         dX['pitch_angle'] = delta_pitch_angle
         
-        if not hasattr(self, '_debug_counter'):
-            self._debug_counter = 0
         self._debug_counter += 1
         if self._debug_counter == 1 or self._debug_counter == 2 or self._debug_counter == 3 or self._debug_counter == 4 or self._debug_counter == 5 or self._debug_counter == 6 or (self._debug_counter % 5000 == 0 and self._debug_counter <= 60000): 
             print('Debug values (iteration', self._debug_counter, '):')
@@ -173,8 +175,7 @@ class WindTurbine(DAEModel):
             print('  pitch_angle:', self._pitch_angle)
             print('  Pm (WT local pu):', Pm)
             print('  Pe (WT local pu):', Pe)
-            print('  P_ref (UIC local pu):', P_ref)
-            print('  P_rated (WT local pu):', P_rated)
+            print('  P_ref (Wt local pu):', P_ref)
             print('cp: ', self.Cp(x, v))
             print('  Region:', 'MPPT' if P_ref < (P_rated - 0.02) else 'Power Limiting')
             print('par[H_m]:', par['H_m'].astype(float))
@@ -188,9 +189,10 @@ class WindTurbine(DAEModel):
     def init_from_connections(self, x_0, v_0, S):
         X = self.local_view(x_0)
         par = self.par
-        # P_e comes from UIC in SYSTEM BASE - store as-is for connection system
-        # The connection will call P_e() which now returns system base
-        self._input_values['P_e'] = self.P_e(x_0, v_0)  # System base (UIC.p_e() now returns system base)
+        # P_e comes from UIC in UIC LOCAL BASE (not system base)
+        # S_n_UIC comes from UIC to know its base for conversion
+        self._input_values['P_e'] = self.P_e(x_0, v_0)  # UIC local base
+        self._input_values['S_n_UIC'] = self.S_n_UIC(x_0, v_0)  # UIC's S_n for base conversion
         poles = 2 # change this later TODO
         ideal_tsr_start = par['R'] * 1 / par['wind_rated']
         start_omega_m_init = ideal_tsr_start * self.wind_speed(x_0, v_0) / (par['R']) # in rad/s
@@ -249,7 +251,7 @@ class WindTurbine(DAEModel):
             P_ref_array[i] = min(P_mpt, P_rated) # limit elec power demand
         
         # Convert to system base for communication with VSC/UIC
-        return P_ref_array * self.par['S_n'] / self.sys_par['s_n'] # WT pu -> UIC pu
+        return P_ref_array * self.par['S_n'] / self.S_n_UIC(x, v) # WT pu -> UIC pu
 
 
     def _load_MPT_table(self):
@@ -346,20 +348,9 @@ class WindTurbine(DAEModel):
 
         u_wind = 8.0
 
-        if not hasattr(self, '_debug_counter'):
-            self._debug_counter = 0
-        self._debug_counter += 1
-        
-        if self._debug_counter >= 70000:
+        # Change wind speed after a certain number of iterations
+        # Counter is initialized in __init__ and incremented in state_derivatives
+        if hasattr(self, '_debug_counter') and self._debug_counter >= 24000:
             u_wind = 11.5
     
         return u_wind
-
-    def P_below_rated_wind(self, x, v):
-        X = self.local_view(x)
-        K = 0.302217E+08
-        P_watts = K * (X['omega_m']*self.par['omega_m_rated'])**3
-        S_base_watts = self.par['S_n'] * 1e6  # Convert MVA to Watts, WT local base
-        P_pu = P_watts / S_base_watts
-
-        return P_pu

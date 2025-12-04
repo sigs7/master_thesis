@@ -165,3 +165,6 @@ class UIC_sig(DAEModel):
 
     def q_e(self, x, v):
         return self.s_e(x, v).imag
+
+    def S_n(self, x, v):
+        return self.par['S_n']

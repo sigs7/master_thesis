@@ -22,12 +22,14 @@ if __name__ == '__main__':
 
     wt_model = ps.windturbine['WindTurbine']
     uic_model = ps.vsc['UIC_sig']
+    gen_model = ps.gen['GEN']  # Infinite bus generator
     wt_name = wt_model.par['name'][0]
     uic_name = uic_model.par['name'][0]
+    gen_name = gen_model.par['name'][0]
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 100 # Simulation time
+    t_end = 120 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
@@ -51,8 +53,14 @@ if __name__ == '__main__':
     omega_m_hist = []
     omega_e_hist = []
     pitch_angle_hist = []
+    wind_speed_hist = []
+    i_a_mag_hist = []
+    i_a_angle_hist = []
+    P_gen_stored = []  # Infinite bus power injection
+    Q_gen_stored = []  # Infinite bus reactive power
+    Q_e_uic_stored = []  # UIC reactive power (actual)
+    Q_ref_uic_stored = []  # UIC reactive power (reference)
 
-    # event_flag1 = True  # Create a different flag for each system event
     # endregion
 
     # Simulation loop starts here!
@@ -75,25 +83,44 @@ if __name__ == '__main__':
         [result_dict[tuple(desc)].append(state) for desc, state in zip(ps.state_desc, x)]
         # Store additional variables
 
-        v_bus.append(np.abs(v[0]))  # Stores magnitude of generator terminal voltage
+        # Store bus voltage (at UIC terminal)
+        v_bus.append(np.abs(v[sc_bus_idx]))  # Stores magnitude
         # Convert powers to system base for consistent plotting
         P_m_local = wt_model.P_m(x, v)[0]  # In WT local base
         P_e_uic = wt_model.P_e(x, v)[0]  # From UIC.p_e() = s_e.real, where s_e = v_t*conj(i_a)
         # s_e is in UIC local base: v_t (system base voltage) * i_a (UIC local base current) = UIC local base power
-        P_ref_sys = wt_model.P_ref(x, v)[0]  # Returns system base (WT local → system conversion)
+        P_ref_uic = wt_model.P_ref(x, v)[0]  # Returns UIC local base (WT local → UIC local conversion)
         # Get bases for conversions
         sys_s_n = wt_model.sys_par['s_n']
         uic_s_n = uic_model.par['S_n'][0]
+        wt_s_n = wt_model.par['S_n'][0]
+        gen_s_n = gen_model.par['S_n'][0]
         # Convert to system base
-        P_m_stored.append(P_m_local * wt_model._local_to_sys[0])  # WT local → system
+        P_m_stored.append(P_m_local * wt_s_n / sys_s_n)  # WT local → system
         P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)  # UIC local → system
-        P_ref_stored.append(P_ref_sys)  # Already in system base
+        P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)  # UIC local → system
+        # Infinite bus power injection (in generator local base, convert to system base)
+        P_gen_local = gen_model.p_e(x, v)[0]  # Generator local base
+        Q_gen_local = gen_model.q_e(x, v)[0]  # Generator local base
+        P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)  # Generator local → system
+        Q_gen_stored.append(Q_gen_local * gen_s_n / sys_s_n)  # Generator local → system
+        # UIC reactive power (in UIC local base, convert to system base)
+        Q_e_uic_local = uic_model.q_e(x, v)[0]  # UIC local base
+        Q_ref_uic_local = uic_model.q_ref(x, v)[0]  # UIC local base
+        Q_e_uic_stored.append(Q_e_uic_local * uic_s_n / sys_s_n)  # UIC local → system
+        Q_ref_uic_stored.append(Q_ref_uic_local * uic_s_n / sys_s_n)  # UIC local → system
         wt_states = wt_model.local_view(x)
         omega_m_hist.append(wt_states['omega_m'][0])
         omega_e_hist.append(wt_states['omega_e'][0])
         # Pitch angle is stored as state variable
         pitch_angle_val = wt_states['pitch_angle'][0] if 'pitch_angle' in wt_states.dtype.names else 0.0
         pitch_angle_hist.append(float(pitch_angle_val * 180 / np.pi))  # Convert to degrees and ensure scalar
+        # Wind speed
+        wind_speed_hist.append(wt_model.wind_speed(x, v))
+        # UIC armature current
+        i_a = uic_model.i_a(x, v)[0]
+        i_a_mag_hist.append(np.abs(i_a))
+        i_a_angle_hist.append(np.angle(i_a) * 180 / np.pi)  # Convert to degrees
         # endregion
 
     # Convert dict to pandas dataframe
@@ -102,36 +129,92 @@ if __name__ == '__main__':
     # region Plotting
     t_stored = result[('Global', 't')]
 
-    fig, ax = plt.subplots(4, sharex=True, figsize=(9, 10))
-    fig.suptitle('UIC internal voltage and wind turbine response')
+    # First figure: Wind Turbine
+    fig1, ax1 = plt.subplots(3, 1, sharex=True, figsize=(9, 8))
+    fig1.suptitle('Wind Turbine', fontsize=14)
 
+    # Rotational and electrical speeds
+    ax1[0].plot(t_stored, omega_m_hist, label='ω_m (mechanical speed)', color='blue', linewidth=1.5)
+    ax1[0].plot(t_stored, omega_e_hist, label='ω_e (electrical speed)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax1[0].set_ylabel('Speed (p.u.)')
+    ax1[0].legend(loc='best')
+    ax1[0].grid(True, alpha=0.3)
+
+    # Pitch angle
+    ax1[1].plot(t_stored, pitch_angle_hist, label='Pitch angle', color='blue', linewidth=1.5)
+    ax1[1].set_ylabel('Pitch angle (deg)')
+    ax1[1].legend(loc='best')
+    ax1[1].grid(True, alpha=0.3)
+
+    # Wind speed
+    ax1[2].plot(t_stored, wind_speed_hist, label='Wind speed', color='#FF1493', linewidth=1.5)  # deeppink
+    ax1[2].set_ylabel('Wind speed (m/s)')
+    ax1[2].set_xlabel('Time (s)')
+    ax1[2].legend(loc='best')
+    ax1[2].grid(True, alpha=0.3)
+
+    # Second figure: UIC
+    fig2, ax2 = plt.subplots(4, 1, sharex=True, figsize=(9, 8))
+    fig2.suptitle('UIC', fontsize=14)
+
+    # Voltages (magnitude)
     vi_x = result[(uic_name, 'vi_x')]
     vi_y = result[(uic_name, 'vi_y')]
     vi_mag = np.sqrt(vi_x**2 + vi_y**2)
-    ax[0].plot(t_stored, vi_mag, label='|v_i|')
-    ax[0].plot(t_stored, np.array(v_bus), label='|v_bus|')
-    ax[0].set_ylabel('Voltage (p.u.)')
-    ax[0].legend(loc='center right')
-    ax[0].grid(True)
+    ax2[0].plot(t_stored, vi_mag, label='|v_i| (internal voltage)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax2[0].plot(t_stored, np.array(v_bus), label='|v_bus| (terminal voltage)', color='blue', linewidth=1.5)
+    ax2[0].set_ylabel('Voltage (p.u.)')
+    ax2[0].legend(loc='best')
+    ax2[0].grid(True, alpha=0.3)
 
-    ax[1].plot(t_stored, omega_m_hist, label='ω_m')
-    ax[1].plot(t_stored, omega_e_hist, label='ω_e')
-    ax[1].set_ylabel('Speed (p.u.)')
-    ax[1].legend(loc='center right')
-    ax[1].grid(True)
+    # Internal voltage components
+    ax2[1].plot(t_stored, vi_x, label='v_i_x (real)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax2[1].plot(t_stored, vi_y, label='v_i_y (imaginary)', color='blue', linewidth=1.5)
+    ax2[1].set_ylabel('Internal voltage (p.u.)')
+    ax2[1].legend(loc='best')
+    ax2[1].grid(True, alpha=0.3)
+    ax2[1].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
 
-    ax[2].plot(t_stored, P_m_stored, label='P_m (mech)')
-    ax[2].plot(t_stored, P_e_stored, label='P_e (elec)')
-    ax[2].plot(t_stored, P_ref_stored, label='P_ref')
-    ax[2].set_ylabel('Power (p.u., system base)')
-    ax[2].legend(loc='center right')
-    ax[2].grid(True)
+    # Current magnitude
+    ax2[2].plot(t_stored, i_a_mag_hist, label='|i_a| (armature current)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax2[2].set_ylabel('Current magnitude (p.u., UIC base)')
+    ax2[2].legend(loc='best')
+    ax2[2].grid(True, alpha=0.3)
 
-    ax[3].plot(t_stored, pitch_angle_hist, label='Pitch angle', color='green')
-    ax[3].set_ylabel('Pitch angle (deg)')
-    ax[3].set_xlabel('Time (s)')
-    ax[3].legend(loc='center right')
-    ax[3].grid(True)
+    # Current angle
+    ax2[3].plot(t_stored, i_a_angle_hist, label='∠i_a (armature current angle)', color='blue', linewidth=1.5)
+    ax2[3].set_ylabel('Current angle (deg)')
+    ax2[3].set_xlabel('Time (s)')
+    ax2[3].legend(loc='best')
+    ax2[3].grid(True, alpha=0.3)
 
-    plt.show(block = True)
+    # Third figure: Power
+    fig3, ax3 = plt.subplots(3, 1, sharex=True, figsize=(9, 10))
+    fig3.suptitle('Power', fontsize=14)
+
+    # Power comparison (P_m, P_e, P_ref)
+    ax3[0].plot(t_stored, P_m_stored, label='P_m (mechanical)', color='orange', linewidth=1.5)
+    ax3[0].plot(t_stored, P_e_stored, label='P_e (electrical)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax3[0].plot(t_stored, P_ref_stored, label='P_ref (reference)', color='blue', linewidth=1.5, linestyle='--')
+    ax3[0].set_ylabel('Power (p.u., system base)')
+    ax3[0].legend(loc='best')
+    ax3[0].grid(True, alpha=0.3)
+
+    # Infinite bus power (P and Q in same subplot)
+    ax3[1].plot(t_stored, P_gen_stored, label='P_inf (infinite bus)', color='blue', linewidth=1.5)
+    ax3[1].plot(t_stored, Q_gen_stored, label='Q_inf (infinite bus)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax3[1].set_ylabel('Power (p.u., system base)')
+    ax3[1].legend(loc='best')
+    ax3[1].grid(True, alpha=0.3)
+
+    # UIC reactive power (actual and reference)
+    ax3[2].plot(t_stored, Q_e_uic_stored, label='Q_e (UIC actual)', color='#FF1493', linewidth=1.5)  # deeppink
+    ax3[2].plot(t_stored, Q_ref_uic_stored, label='Q_ref (UIC reference)', color='blue', linewidth=1.5, linestyle='--')
+    ax3[2].set_ylabel('Reactive Power (p.u., system base)')
+    ax3[2].set_xlabel('Time (s)')
+    ax3[2].legend(loc='best')
+    ax3[2].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show(block=True)
     # endregion
