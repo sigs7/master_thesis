@@ -25,14 +25,14 @@ def load():
         'generators': {
             'GEN': [
                 ['name',   'bus',  'S_n',  'V_n',    'P',    'V',      'H',    'D',    'X_d',  'X_q',  'X_d_t',    'X_q_t',    'X_d_st',   'X_q_st',   'T_d0_t',   'T_q0_t',   'T_d0_st',  'T_q0_st'],
-                ['IB',      'B1',    10,    22,       0,      1,      1e5,      0,     1.05,   0.66,    0.328,      0.66,       1e-5,      1e-5,         1e5,      10000,          1e5,        1e5],
+                ['IB',      'B1',    10e8,    22,       0,      1,      1e5,      0,     1.05,   0.66,    0.328,      0.66,       1e-5,      1e-5,         1e5,      10000,          1e5,        1e5],
             ],
         },
 
         'vsc': {
             'UIC_sig': [
                 ['name', 'bus', 'S_n', 'V_n', 'v_ref', 'p_ref', 'q_ref',   'Ki',   'Kv',    'xf', 'perfect_tracking', 'T_filter'],
-                ['UIC1', 'B2',    11,   22,      1.0,     1.0,      0.5,    0.1,     0.1,    0.1,        0,          0.1   ] # enable perfect tracking: 1, else 0
+                ['UIC1', 'B2',    11,   22,      1.0,     1.0,      0.5,    0.1,     0.0,    0.1,        0,          0.1   ] # enable perfect tracking: 1, else 0
             ],
         },
 

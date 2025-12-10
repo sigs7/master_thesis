@@ -1,6 +1,6 @@
 from src.dyn_models.utils import DAEModel
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator, interp1d
 import os
 
 class WindTurbine(DAEModel):
@@ -36,13 +36,22 @@ class WindTurbine(DAEModel):
         # Initialize debug counter for wind speed changes
         # Counter increments each time state_derivatives is called
         self._debug_counter = 0
-
-        """ self._pitch_angle = 0.0
-        self._pitch_rate_stored = 0.0  # Store pitch rate from previous time step
-        self._last_omega_m = None  # Track omega_m to detect new time step
-        self._pitch_rate_filtered = 0.0  # Filtered pitch rate for smoothing """
         
-        # w_e = p/2 * w_m -> electrical speed is much larger than mechanical when assuming poles are 84
+        # Load wind data from .hh file
+        # File format: first line is number of columns, then time (col 1) and wind speed in m/s (col 2)
+        wind_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                      'wind_data', '10mps_NTM_3xDTU10MW_IECKAI_VS_T1.hh')
+        wind_data = np.loadtxt(wind_file_path, skiprows=1, usecols=(0, 1))
+        wind_times = wind_data[:, 0]  # First column: time in seconds
+        wind_speeds = wind_data[:, 1]  # Second column: wind speed in m/s
+        
+        # Create interpolation function for smooth wind speed transitions
+        # Use linear interpolation for natural smooth transitions
+        self._wind_interp = interp1d(wind_times, wind_speeds, kind='linear', 
+                                     bounds_error=False, fill_value=(wind_speeds[0], wind_speeds[-1]))
+        self._dt = 5e-3  # Timestep in seconds
+        
+        # w_e = p/2 * w_m -> electrical speed is much larger than mechanical if assuming poles are 84
         # convert all WT params to pu:
         # H_m = J_m * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
         omega_norm = self.par['omega_m_rated']
@@ -199,7 +208,7 @@ class WindTurbine(DAEModel):
         
         # Initialize at a reasonable operating speed (e.g., 0.8 pu of rated)
         # This ensures we're in a valid operating region for MPT table lookup
-        omega_m_init_pu = start_omega_m_init / par['omega_m_rated'] * 0.8 # in pu
+        omega_m_init_pu = start_omega_m_init / par['omega_m_rated']  # in pu
         X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
         # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
         # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
@@ -226,7 +235,6 @@ class WindTurbine(DAEModel):
         
         return P_m_pu # WT pu
  
-
     def P_ref(self, x, v):
         X = self.local_view(x)
         # Load MPT table on first call
@@ -344,13 +352,26 @@ class WindTurbine(DAEModel):
         return Cp_table
 
     def wind_speed(self, x, v):
-        ## change to read from file
-
+        """Returns wind speed in m/s from interpolated wind data file.
+        
+        Uses the first two columns of the .hh wind data file:
+        - Column 1: time in seconds
+        - Column 2: wind speed in m/s
+        
+        Interpolates smoothly between data points using timestep 5e-3 seconds.
+        """
+        """ # Calculate current simulation time from counter and timestep
+        t = self._debug_counter * self._dt
+        
+        # Interpolate wind speed at current time for smooth transitions
+        u_wind = float(self._wind_interp(t))
+ """
         u_wind = 8.0
 
         # Change wind speed after a certain number of iterations
         # Counter is initialized in __init__ and incremented in state_derivatives
         if hasattr(self, '_debug_counter') and self._debug_counter >= 24000:
             u_wind = 11.5
+        
+        return u_wind      
     
-        return u_wind

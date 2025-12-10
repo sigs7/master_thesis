@@ -15,6 +15,68 @@ if __name__ == '__main__':
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)  # Load into a PowerSystemModel object
 
+    uic_model = ps.vsc['UIC_sig']
+    wt_model = ps.windturbine['WindTurbine']
+    
+    # Get wind turbine parameters
+    R = wt_model.par['R'][0]  # Rotor radius in m
+    omega_m_rated = wt_model.par['omega_m_rated'][0]  # Rated speed in RPM
+    omega_m_rated_rad_s = omega_m_rated * 2 * np.pi / 60  # Convert to rad/s
+    wind_rated = wt_model.par['wind_rated'][0]  # Rated wind speed in m/s
+    
+    # Calculate optimal TSR from rated conditions
+    optimal_tsr = 1 * R / wind_rated
+    """ 
+    # Load wind data file to get initial wind speed
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    wind_file_path = os.path.join(project_root, 'wind_data', '10mps_NTM_3xDTU10MW_IECKAI_VS_T1.hh')
+    
+    # Load wind data (skip first line, read first two columns)
+    wind_data = np.loadtxt(wind_file_path, skiprows=1, usecols=(0, 1))
+    wind_times = wind_data[:, 0]  # First column: time in seconds
+    wind_speeds = wind_data[:, 1]  # Second column: wind speed in m/s
+    
+    # Use first wind speed value from file as initial wind speed
+    init_wind_speed = wind_speeds[0]  # m/s
+     """
+    # Calculate initial rotor speed from initial wind speed
+    init_wind_speed = 8.0  # m/s
+    init_omega_m_rad_s = optimal_tsr * init_wind_speed / R
+    
+    # Load MPT table and interpolate to get optimal power for initial rotor speed
+    from scipy.interpolate import interp1d
+    mpt_file_path = 'wind_data/MPT.csv'
+    mpt_data = np.loadtxt(mpt_file_path, delimiter='\t', skiprows=2)
+    rotor_speed_RPM = mpt_data[:, 0]  # Rotor speeds in RPM
+    optimal_powers = mpt_data[:, 1]  # Optimal powers in pu (WT base)
+    
+    # Create interpolator for MPT curve (using RPM directly)
+    mpt_interp = interp1d(rotor_speed_RPM, optimal_powers, kind='linear',
+                          bounds_error=False, fill_value=(0.0, optimal_powers[-1]))
+    
+    # Convert initial rotor speed from rad/s to RPM for interpolation
+    init_omega_m_RPM = init_omega_m_rad_s * 60 / (2 * np.pi)
+    
+    # Get initial P_ref from MPT curve (in WT local base, pu)
+    P_rated_sys = wt_model.par['P_rated'][0]  # Rated power in pu (system base)
+    P_mpt_init = float(mpt_interp(init_omega_m_RPM))
+    
+    # Convert P_rated from system base to WT base for comparison
+    sys_s_n = ps.s_n  # System base MVA
+    wt_s_n = wt_model.par['S_n'][0]  # WT S_n
+    P_rated_wt = P_rated_sys * sys_s_n / wt_s_n  # Convert to WT base
+    
+    P_ref_wt_pu = min(P_mpt_init, P_rated_wt)  # Limit to rated power (both in WT base)
+    
+    # Convert P_ref from WT base to UIC base
+    uic_s_n = uic_model.par['S_n'][0]  # UIC S_n
+    init_P_ref = P_ref_wt_pu * wt_s_n / uic_s_n  # Convert to UIC base
+    
+    uic_model.par['p_ref'][:] = init_P_ref
+    uic_model.par['q_ref'][:] = 0.0
+    
     ps.power_flow()  # Power flow calculation
 
     ps.init_dyn_sim()  # Initialise dynamic variables
@@ -23,6 +85,9 @@ if __name__ == '__main__':
     wt_model = ps.windturbine['WindTurbine']
     uic_model = ps.vsc['UIC_sig']
     gen_model = ps.gen['GEN']  # Infinite bus generator
+    
+    # Override q_ref input value to ensure it's 0 (init_from_load_flow sets it from load flow solution)
+    uic_model._input_values['q_ref'][:] = 0.0
     wt_name = wt_model.par['name'][0]
     uic_name = uic_model.par['name'][0]
     gen_name = gen_model.par['name'][0]
@@ -83,8 +148,11 @@ if __name__ == '__main__':
         [result_dict[tuple(desc)].append(state) for desc, state in zip(ps.state_desc, x)]
         # Store additional variables
 
-        # Store bus voltage (at UIC terminal)
-        v_bus.append(np.abs(v[sc_bus_idx]))  # Stores magnitude
+        # Store bus voltage (at UIC terminal) - use UIC model's v_t() method for consistency
+        # Note: Voltages are in system base per-unit (voltage base, NOT power base)
+        # They do NOT depend on UIC's S_n - voltages are always on the bus voltage base
+        v_t_uic = uic_model.v_t(x, v)[0]  # Terminal voltage from UIC model
+        v_bus.append(np.abs(v_t_uic))  # Stores magnitude
         # Convert powers to system base for consistent plotting
         P_m_local = wt_model.P_m(x, v)[0]  # In WT local base
         P_e_uic = wt_model.P_e(x, v)[0]  # From UIC.p_e() = s_e.real, where s_e = v_t*conj(i_a)
@@ -105,7 +173,13 @@ if __name__ == '__main__':
         P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)  # Generator local → system
         Q_gen_stored.append(Q_gen_local * gen_s_n / sys_s_n)  # Generator local → system
         # UIC reactive power (in UIC local base, convert to system base)
-        Q_e_uic_local = uic_model.q_e(x, v)[0]  # UIC local base
+        # Calculate reactive power at internal voltage (excluding reactive power consumed by xf)
+        # Use i_a (current through xf) to calculate power at internal voltage
+        X = uic_model.local_view(x)
+        vi = X['vi_x'][0] + 1j*X['vi_y'][0]  # Internal voltage
+        i_a = uic_model.i_a(x, v)[0]  # Current through xf (from terminal to internal)
+        s_internal = vi * np.conj(i_a)  # Power at internal voltage
+        Q_e_uic_local = s_internal.imag  # Reactive power at internal voltage (UIC local base)
         Q_ref_uic_local = uic_model.q_ref(x, v)[0]  # UIC local base
         Q_e_uic_stored.append(Q_e_uic_local * uic_s_n / sys_s_n)  # UIC local → system
         Q_ref_uic_stored.append(Q_ref_uic_local * uic_s_n / sys_s_n)  # UIC local → system
@@ -129,7 +203,7 @@ if __name__ == '__main__':
     # region Plotting
     t_stored = result[('Global', 't')]
 
-    # First figure: Wind Turbine
+    # First figure: Wind Turbine.
     fig1, ax1 = plt.subplots(3, 1, sharex=True, figsize=(9, 8))
     fig1.suptitle('Wind Turbine', fontsize=14)
 
@@ -158,12 +232,13 @@ if __name__ == '__main__':
     fig2.suptitle('UIC', fontsize=14)
 
     # Voltages (magnitude)
+    # Note: All voltages are in system base per-unit (voltage base, NOT power base)
     vi_x = result[(uic_name, 'vi_x')]
     vi_y = result[(uic_name, 'vi_y')]
     vi_mag = np.sqrt(vi_x**2 + vi_y**2)
     ax2[0].plot(t_stored, vi_mag, label='|v_i| (internal voltage)', color='#FF1493', linewidth=1.5)  # deeppink
     ax2[0].plot(t_stored, np.array(v_bus), label='|v_bus| (terminal voltage)', color='blue', linewidth=1.5)
-    ax2[0].set_ylabel('Voltage (p.u.)')
+    ax2[0].set_ylabel('Voltage (p.u., system voltage base)')
     ax2[0].legend(loc='best')
     ax2[0].grid(True, alpha=0.3)
 

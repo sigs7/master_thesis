@@ -42,7 +42,7 @@ class UIC_sig(DAEModel):
         vi = X['vi_x'] + 1j*X['vi_y']
 
         i_ref = np.conj(s_ref/vi) 
-        i_max_pu = 1.2  # 20% overrating 
+        i_max_pu = 1.9  # 20% overrating 
         i_ref_clamped = np.minimum(abs(i_ref), i_max_pu) * np.exp(1j*np.angle(i_ref))
         i_a = self.i_a(x, v)
         theta = np.angle(vi, deg=False)
@@ -92,7 +92,6 @@ class UIC_sig(DAEModel):
         return
 
     def i_inj(self, x, v):
-        """Norton equivalent"""
         X = self.local_view(x)
         vi = X['vi_x'] + 1j*X['vi_y']
         xf = self.par['xf'][0]
@@ -104,7 +103,6 @@ class UIC_sig(DAEModel):
         return self.bus_idx_red['terminal'], self.i_inj(x, v) * i_n_r
     
     def init_from_load_flow(self, x_0, v_0, S):
-        """Initialize from load flow solution"""
         par = self.par
         X = self.local_view(x_0)
 
