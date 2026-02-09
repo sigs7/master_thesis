@@ -218,7 +218,8 @@ if __name__ == '__main__':
     # Rotational and electrical speeds
     ax1[0].plot(t_stored, omega_m_hist, label='ω_m (mechanical speed)', color='blue', linewidth=1.5)
     ax1[0].plot(t_stored, omega_e_hist, label='ω_e (electrical speed)', color='#FF1493', linewidth=1.5)  # deeppink
-    ax1[0].set_ylabel('Speed (p.u.)')
+    ax1[0].axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, label='Rated speed (1.0 p.u.)')
+    ax1[0].set_ylabel('Speed (p.u., base = ω_m_rated)')
     ax1[0].legend(loc='best')
     ax1[0].grid(True, alpha=0.3)
 

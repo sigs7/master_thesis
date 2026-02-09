@@ -64,7 +64,7 @@ class UIC_sig(DAEModel):
             self._debug_counter = 0
         self._debug_counter += 1
         if self._debug_counter == 1 or self._debug_counter == 7500 or self._debug_counter == 100 or self._debug_counter == 500 or self._debug_counter == 1000 or (self._debug_counter % 5000 == 0 and self._debug_counter <= 60000): 
-            print('Debug values (iteration', self._debug_counter, '):')
+            """ print('Debug values (iteration', self._debug_counter, '):')
             print('  X[vi_x]:', X['vi_x'])
             print('  X[vi_y]:', X['vi_y'])
             print('vi: ', vi)
@@ -86,7 +86,7 @@ class UIC_sig(DAEModel):
             print('x_filter: ', X['x_filter'])
             print('delta_omega: ', delta_omega)
             print('dX[x_filter]:', dX['x_filter'])
-            print('perfect_tracking_addition: ', perfect_tracking_addition)
+            print('perfect_tracking_addition: ', perfect_tracking_addition) """
             #print('perfect_tracking_addition: ', perfect_tracking_addition)
 
         return
@@ -120,14 +120,14 @@ class UIC_sig(DAEModel):
         X['vi_y'] = np.imag(vi)
         X['x_filter'] = 0.0
 
-        print('vi_x init', X['vi_x'])
-        print('vi_y init', X['vi_y'])
-        print('p_ref init', S_internal.real)
-        print('q_ref init', S_internal.imag)
-        print('p_e init', self.p_e(x_0, v_0))
-        print('q_e init', self.q_e(x_0, v_0))
-        print('v_ref init', abs(vi))
-        print('v_t init', v_t)
+        #print('vi_x init', X['vi_x'])
+        #print('vi_y init', X['vi_y'])
+        #print('p_ref init', S_internal.real)
+        #print('q_ref init', S_internal.imag)
+        #print('p_e init', self.p_e(x_0, v_0))
+        #print('q_e init', self.q_e(x_0, v_0))
+        #print('v_ref init', abs(vi))
+        #print('v_t init', v_t)
         return
 
     def dyn_const_adm(self):

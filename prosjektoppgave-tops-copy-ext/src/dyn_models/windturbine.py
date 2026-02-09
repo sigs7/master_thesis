@@ -2,19 +2,17 @@ from src.dyn_models.utils import DAEModel
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, interp1d
 import os
+import src.utility_functions as dps_uf
 
 class WindTurbine(DAEModel):
 
     """
-    Inputs:
     'windturbine': {
         'WindTurbine': [
-            [
-                'name', 'UIC', 'H_m', 'H_e', 'K', 'D', 'Kp_pitch', 'Ki_pitch', 'rho', 'R', 'P_rated', omega_m_rated, wind_rated],
-            [
-                'WT1', 'UIC1',  1.0,    1.0, 2317025352, 9240560,    60*np.pi/180,   13*np.pi/180,   1.225,  89.15, 1.0, 1.0, 10]
-                # [-,-, s, s, Nm/rad, Nms/rad, rad/pu, rad/pu, kg/m^3, m, pu, RPM, m/s] from PF
-                # Note: omega_m_rated should be provided in RPM and will be converted to rad/s internally
+            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'MPT_filename', 'Cp_filename'],
+            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90,           0,           2,              1.225,    120.97,       1.0,       7.53,      10.6,       'MPT_Kopt2150.csv', 'Cp_Kopt2150.csv']
+            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -] 
+                
         ],
     }
     """
@@ -27,51 +25,38 @@ class WindTurbine(DAEModel):
         self.par['S_n'] = sn
         self._sys_to_local = self.sys_par['s_n'] / self.par['S_n']
         self._local_to_sys = self.par['S_n'] / self.sys_par['s_n']
+
         # Convert omega_m_rated from RPM to rad/s
-        # Input parameter should be provided in RPM, converted to rad/s for internal use
-        # 1 RPM = 2π/60 rad/s = π/30 rad/s
-        RPM_to_rad_per_s = 2 * np.pi / 60  
+        RPM_to_rad_per_s = 2 * np.pi / 60  # 1 RPM = 2π/60 rad/s
         self.par['omega_m_rated'] = self.par['omega_m_rated'] * RPM_to_rad_per_s
         
-        # Initialize debug counter for wind speed changes
-        # Counter increments each time state_derivatives is called
         self._debug_counter = 0
         
-        # Load wind data from .hh file
+        # Load wind data from .hh file for variable wind speed
         # File format: first line is number of columns, then time (col 1) and wind speed in m/s (col 2)
         wind_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
                                       'wind_data', '10mps_NTM_3xDTU10MW_IECKAI_VS_T1.hh')
         wind_data = np.loadtxt(wind_file_path, skiprows=1, usecols=(0, 1))
         wind_times = wind_data[:, 0]  # First column: time in seconds
         wind_speeds = wind_data[:, 1]  # Second column: wind speed in m/s
-        
         # Create interpolation function for smooth wind speed transitions
         # Use linear interpolation for natural smooth transitions
         self._wind_interp = interp1d(wind_times, wind_speeds, kind='linear', 
                                      bounds_error=False, fill_value=(wind_speeds[0], wind_speeds[-1]))
         self._dt = 5e-3  # Timestep in seconds
-        
-        # w_e = p/2 * w_m -> electrical speed is much larger than mechanical if assuming poles are 84
-        # convert all WT params to pu:
-        # H_m = J_m * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
-        """ omega_norm = self.par['omega_m_rated']
-        omega_synchronous = 2 * np.pi * self.sys_par['f_n']
-        poles = 2 # unsure about this, based on rated speed (ns = 120*f/p)
-        self.par['H_m'] = 0.5 * self.par['J_m'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
-        # H_e = J_e * omega_synchronous^2 / (S_n * 1e6 * (p/2)**2)
-        self.par['H_e'] = 0.5 * self.par['J_e'] * omega_synchronous**2 / (self.par['S_n'] * 1e6 * (poles/2)**2)
-        # K = K * omega_synchronous / (S_n * 1e6 * (p/2)**2)
-        self.par['K'] = self.par['K'] * omega_norm / (self.par['S_n'] * 1e6 * (poles/2)**2)
-        # D = D * omega_synchronous / (S_n * 1e6 * (p/2)**2)
-        self.par['D'] = self.par['D'] * omega_norm**2 / (self.par['S_n'] * 1e6 * (poles/2)**2) """
 
+        # convert all WT params to pu:
         w_base = self.par['omega_m_rated'] # in rad/s
         T_base = self.par['S_n'] * 1e6 / w_base # W / rad/s = Nm
         
-        self.par['H_m'] = 0.5 * self.par['J_m'] * w_base**2 / (self.par['S_n'] * 1e6)
-        self.par['H_e'] = 0.5 * self.par['J_e'] * w_base**2 / (self.par['S_n'] * 1e6)
+        # Calculate H_m and H_e from J_m and J_e as instance variables (arrays, one per unit)
+        self.H_m = 0.5 * self.par['J_m'] * w_base**2 / (self.par['S_n'] * 1e6)
+        self.H_e = 0.5 * self.par['J_e'] * w_base**2 / (self.par['S_n'] * 1e6)
         self.par['K'] = self.par['K'] / T_base
         self.par['D'] = self.par['D'] * w_base / T_base
+        self.par['max_pitch'] = self.par['max_pitch'] * np.pi / 180
+        self.par['min_pitch'] = self.par['min_pitch'] * np.pi / 180
+        self.par['max_pitch_rate'] = self.par['max_pitch_rate'] * np.pi / 180
         
     def connections(self):
         return [
@@ -127,17 +112,16 @@ class WindTurbine(DAEModel):
         omega_e_mech_base = X['omega_e']
         
         # swing eqs for wt dynamics
-        dX['omega_m'] = (1/par['H_m']) * (Tm - (par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)))
-        dX['omega_e'] = (1/par['H_e']) * ((par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)) - Te)
+        dX['omega_m'] = (1/self.H_m) * (Tm - (par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)))
+        dX['omega_e'] = (1/self.H_e) * ((par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)) - Te)
         dX['theta_m'] = X['omega_m']
         dX['theta_e'] = X['omega_e']
 
-        # TODO Inputs for current WT?
-        max_pitch = 1.57  # 90 degrees max
-        min_pitch = 0.0  # 0 degrees min 
-        max_pitch_rate = 0.03490  # 2 deg/s max rate
-        omega_m_ref = 1.0  # Rated speed in pu
-        e_omega = X['omega_m'] - omega_m_ref
+        max_pitch = par['max_pitch'][0]
+        min_pitch = par['min_pitch'][0]
+        max_pitch_rate = par['max_pitch_rate'][0]
+        omega_m_ref = 1.0
+        e_omega = X['omega_m'][0] - omega_m_ref
         pitch_reference = 0.0
 
         if e_omega < -0.05:
@@ -145,8 +129,8 @@ class WindTurbine(DAEModel):
             dX_pitch_integral = 0.0
         else:  # Region 3: Power limiting (speed approaching rated)
             # Calculate controller output to check for anti-windup
-            PIctrl_integral_term = par['Ki_pitch'] * X['pitch_PI_integral_state']
-            PIctrl_proportional_term = par['Kp_pitch'] * e_omega
+            PIctrl_integral_term = par['Ki_pitch'][0] * X['pitch_PI_integral_state'][0]
+            PIctrl_proportional_term = par['Kp_pitch'][0] * e_omega
             pitch_reference_unclamped = PIctrl_integral_term + PIctrl_proportional_term
             
             # Anti-windup -> stops integration term when reference is at limit to prevent over- and undershoots
@@ -162,40 +146,34 @@ class WindTurbine(DAEModel):
         dX['pitch_PI_integral_state'] = dX_pitch_integral
         
         ## Servo  
-        delta_pitch_angle = 1/par['T_pitch'] * (pitch_reference - X['pitch_angle'])
+        delta_pitch_angle = 1/par['T_pitch'][0] * (pitch_reference - X['pitch_angle'][0])
         delta_pitch_angle = np.clip(delta_pitch_angle, -max_pitch_rate, max_pitch_rate) # limit rate of change in pitch angle
-        
-        """ # this should not be necessary as the checks above should prevent this
-        if X['pitch_angle'] >= max_pitch and delta_pitch_angle > 0:
-            delta_pitch_angle = 0.0  # Stop if at upper limit and trying to increase
-        elif X['pitch_angle'] <= min_pitch and delta_pitch_angle < 0:
-            delta_pitch_angle = 0.0  # Stop if at lower limit and trying to decrease """
         
         dX['pitch_angle'] = delta_pitch_angle
         
         self._debug_counter += 1
         if self._debug_counter == 1 or self._debug_counter == 2 or self._debug_counter == 3 or self._debug_counter == 4 or self._debug_counter == 5 or self._debug_counter == 6 or (self._debug_counter % 5000 == 0 and self._debug_counter <= 60000): 
-            print('Debug values (iteration', self._debug_counter, '):')
-            print('  X[omega_m]:', X['omega_m'])
-            print('  X[omega_e]:', X['omega_e'])
-            print('  X[theta_m]:', X['theta_m'])
-            print('  X[theta_e]:', X['theta_e'])
-            print('dX[omega_m]:', dX['omega_m'])
-            print('dX[omega_e]:', dX['omega_e'])
-            print('dX[theta_m]:', dX['theta_m'])
-            print('dX[theta_e]:', dX['theta_e'])
-            print('dX[pitch_PI_integral_state]:', dX['pitch_PI_integral_state'])
-            print('  X[pitch_PI_integral_state]:', X['pitch_PI_integral_state'])
-            print('dX[pitch_angle]:', dX['pitch_angle'])
+            #print('Debug values (iteration', self._debug_counter, '):')
+            #print('  X[omega_m]:', X['omega_m'])
+            #print('  X[omega_e]:', X['omega_e'])
+            #print('  X[theta_m]:', X['theta_m'])
+            #print('  X[theta_e]:', X['theta_e'])
+            #print('dX[omega_m]:', dX['omega_m'])
+            #print('dX[omega_e]:', dX['omega_e'])
+            #print('dX[theta_m]:', dX['theta_m'])
+            #print('dX[theta_e]:', dX['theta_e'])
+            #print('dX[pitch_PI_integral_state]:', dX['pitch_PI_integral_state'])
+            #print('  X[pitch_PI_integral_state]:', X['pitch_PI_integral_state'])
+            #print('dX[pitch_angle]:', dX['pitch_angle'])
             print('  X[pitch_angle]:', X['pitch_angle'])
-            print('  pitch_angle:', self._pitch_angle)
+            #print('  pitch_angle:', self._pitch_angle)
             print('  Pm (WT local pu):', Pm)
             print('  Pe (WT local pu):', Pe)
             print('  P_ref (Wt local pu):', P_ref)
             print('cp: ', self.Cp(x, v))
-            print('  Region:', 'MPPT' if P_ref < (P_rated - 0.02) else 'Power Limiting')
-            print('par[H_m]:', par['H_m'].astype(float))
-            print('par[H_e]:', par['H_e'].astype(float))
+            print('  Region:', 'MPPT' if P_ref < (P_rated) else 'Power Limiting')
+            print('H_m:', self.H_m.astype(float))
+            print('H_e:', self.H_e.astype(float))
             print('par[K]:', par['K'].astype(float))
             print('par[D]:', par['D'].astype(float))
             #print('  omega_m_ref:', omega_m_ref)
@@ -209,20 +187,18 @@ class WindTurbine(DAEModel):
         # S_n_UIC comes from UIC to know its base for conversion
         self._input_values['P_e'] = self.P_e(x_0, v_0)  # UIC local base
         self._input_values['S_n_UIC'] = self.S_n_UIC(x_0, v_0)  # UIC's S_n for base conversion
-        poles = 2 # change this later TODO
         ideal_tsr_start = par['R'] * 1 / par['wind_rated']
         start_omega_m_init = ideal_tsr_start * self.wind_speed(x_0, v_0) / (par['R']) # in rad/s
         
-        # Initialize at a reasonable operating speed (e.g., 0.8 pu of rated)
-        # This ensures we're in a valid operating region for MPT table lookup
         omega_m_init_pu = start_omega_m_init / par['omega_m_rated']  # in pu
         X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
         # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
         # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
-        X['omega_e'] = omega_m_init_pu * (poles/2)  # per-unit (normalized by omega_m_rated)
+        X['omega_e'] = omega_m_init_pu # per-unit (normalized by omega_m_rated)
         X['theta_m'] = 0.0
         X['theta_e'] = 0.0
         X['pitch_PI_integral_state'] = 0.0
+        X['pitch_angle'] = 0.0
         self._pitch_angle = 0.0
 
         return
@@ -272,7 +248,9 @@ class WindTurbine(DAEModel):
     def _load_MPT_table(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(script_dir))
-        path = os.path.join(project_root, 'wind_data', 'MPT_Kopt2150.csv')
+        # Extract filename string from array (typically just one unit)
+        mpt_filename = self.par['MPT_filename'][0] if isinstance(self.par['MPT_filename'], np.ndarray) else self.par['MPT_filename']
+        path = os.path.join(project_root, 'wind_data', mpt_filename)
         
         data = np.loadtxt(path, delimiter='\t')
         
@@ -300,33 +278,33 @@ class WindTurbine(DAEModel):
         par = self.par
         X = self.local_view(x)
         
-        # Calculate tip speed ratio
         # omega_m is stored in per-unit (base = omega_m_rated in rad/s)
-        # Convert to rad/s for TSR calculation
         omega_m_rad_s = X['omega_m'] * par['omega_m_rated'] # pu speed * base speed -> rad/s
         wind_speed = self.wind_speed(x, v) # m/s
         # Handle array case: use np.where for element-wise conditional
         tip_speed_ratio = np.where(wind_speed > 0, omega_m_rad_s * par['R'] / wind_speed, 0)
         
-        # Load ROSCO format Cp data if not already loaded
+        # Load Cp data if not already loaded
         if not hasattr(self, '_cp_data'):
             # Get the path relative to the project root
             script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(os.path.dirname(script_dir))
-            path = os.path.join(project_root, 'wind_data', 'Cp_Ct_Cq.IEA15MW.ROSCO.txt')
+            # Extract filename string from array (typically just one unit)
+            cp_filename = self.par['Cp_filename'][0] if isinstance(self.par['Cp_filename'], np.ndarray) else self.par['Cp_filename']
+            path = os.path.join(project_root, 'wind_data', cp_filename)
             
-            # Read ROSCO format file
+            # Read Cp file
             with open(path, 'r') as f:
                 lines = f.readlines()
             
-            # Parse pitch angles from line 5 (index 4, 0-based)
+            # Parse pitch angles from line 4 (index 3, 0-based)
             # Format: space-separated values, comment starts with #
             pitch_line = lines[4].strip()
             if pitch_line.startswith('#'):
                 pitch_line = pitch_line[1:].strip()
             pitch_angles = np.array([float(x) for x in pitch_line.split()])  # In degrees
             
-            # Parse TSR values from line 7 (index 6, 0-based)
+            # Parse TSR values from line 6 (index 5, 0-based)
             tsr_line = lines[6].strip()
             if tsr_line.startswith('#'):
                 tsr_line = tsr_line[1:].strip()
@@ -340,7 +318,7 @@ class WindTurbine(DAEModel):
                     break
             
             if cp_start_idx is None:
-                raise ValueError("Could not find '# Power coefficient' section in ROSCO file")
+                raise ValueError("Could not find '# Power coefficient' section in Cp file")
             
             # Skip blank lines after the comment
             while cp_start_idx < len(lines) and not lines[cp_start_idx].strip():
@@ -376,10 +354,10 @@ class WindTurbine(DAEModel):
                         cp_values_fixed.append(row)
                 cp_values = np.array(cp_values_fixed)  # Shape: (n_tsr, n_pitch)
             else:
-                raise ValueError("No Cp data found in ROSCO file")
+                raise ValueError("No Cp data found in Cp file")
             
             # Create interpolation function using RegularGridInterpolator
-            # ROSCO file: pitch angles are x-axis (columns), TSR are y-axis (rows)
+            # Cp file: pitch angles are x-axis (columns), TSR are y-axis (rows)
             # cp_values[i, j] where i=TSR row, j=pitch column, so cp_values[i, j] = (TSR[i], pitch[j])
             # RegularGridInterpolator expects: (x_coords, y_coords) where x=pitch (columns), y=TSR (rows)
             # So we need to transpose cp_values so that values[i, j] = (pitch[i], TSR[j])
@@ -396,7 +374,7 @@ class WindTurbine(DAEModel):
         # Interpolate Cp value - pass as 1D array of length 2 for a single point
         # Convert to Python floats first to avoid any array issues
         tsr = float(tip_speed_ratio) if np.isscalar(tip_speed_ratio) else float(tip_speed_ratio.item())
-        # Use state variable pitch_angle (not _pitch_angle instance variable)
+        # Use state variable pitch_angle
         X = self.local_view(x)
         pitch_angle_val = X['pitch_angle'] 
         pa = float(pitch_angle_val*180/np.pi) if np.isscalar(pitch_angle_val) else float(pitch_angle_val.item()*180/np.pi)

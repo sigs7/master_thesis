@@ -39,36 +39,10 @@ def load():
 
         'windturbine': {
         'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',               'J_e',        'H_m',       'H_e',            'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'rho',     'R',  'P_rated', 'omega_m_rated', 'wind_rated'],
-            ['WT1', 'UIC1',  15,    22,          310619488.,            1836784,          1.,           1.,        697376449.,    71186519.,       0.66,           0.2,         0.1,    1.225,  120.97,     1.0,       7.53,      10.6]
+            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'MPT_filename', 'Cp_filename'],
+            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90.0,           0.0,           2.0,              1.225,    120.97,       1.0,       7.53,      10.6,       'MPT_Kopt2150.csv', 'Cp_Ct_Cq.IEA15MW.ROSCO.txt']
+            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -] 
                 
         ],
     }
     }
-
-    """ 'windturbine': {
-        'WindTurbine': [
-            ['name', 'UIC', 'H_m', 'H_e', 'K', 'D', 'Kp_pitch', 'Ki_pitch', 'rho', 'R', 'P_rated'],
-            ['WT1', 'UIC1',  4.5,  0.9,  1.5,  1.5,    5.0,         0.5,      1.225,  89.15, 1.0]
-                # [-,    -,   s,    s,   pu,   pu,   rad/pu,     rad/pu,    kg/m^3,    m,    pu]
-        ],
-
-
-        'windturbine': {
-        'WindTurbine': [
-            ['name', 'UIC', 'H_m', 'H_e', 'K', 'D', 'Kp_pitch', 'Ki_pitch', 'rho', 'R', 'P_rated'],
-            ['WT1', 'UIC1',  5,    1, 2317025352, 9240560,    60*3.14/180,   13*3.14/180,   1.225,  89.15, 1.0]
-                # [-,-, , , Nm/rad, Nms/rad, rad/pu, rad/pu, kg/m^3, m, pu] from PF
-        ],
-    }
-    } 
-    'windturbine': {
-        'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',               'J_e',        'H_m',       'H_e',            'K',          'D',        'Kp_pitch',     'Ki_pitch',   'rho',   'R',  'P_rated', 'omega_m_rated', 'wind_rated'],
-            ['WT1', 'UIC1',  15,    22,    3.50803121174E+08,      1.836784E+06,       1,           1,      6.97376449E+08, 7.1186519E+07,    60*3.14/180,   13*3.14/180,   1.225,  120.97,     1.05,       7.57,               10.6]
-                # [-,-, , , Nm/rad, Nms/rad, rad/pu, rad/pu, kg/m^3, m, pu (system base power), RPM, m/s] from OpenFAST
-                # must have H_m and H_e placeholders for now
-        ],
-    }
-    
-    """
