@@ -9,9 +9,9 @@ class WindTurbine(DAEModel):
     """
     'windturbine': {
         'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'MPT_filename', 'Cp_filename'],
-            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90,           0,           2,              1.225,    120.97,       1.0,       7.53,      10.6,       'MPT_Kopt2150.csv', 'Cp_Kopt2150.csv']
-            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -] 
+            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'N_gearbox','MPT_filename', 'Cp_filename'],
+            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90,           0,           2,              1.225,    120.97,       1.0,       7.53,      10.6,           1,   'MPT_Kopt2150.csv', 'Cp_Kopt2150.csv']
+            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -, -] 
                 
         ],
     }
@@ -109,11 +109,15 @@ class WindTurbine(DAEModel):
         
         Tm = Pm / X['omega_m'] if X['omega_m'] > 0 else 0
         Te = Pe / X['omega_e'] if X['omega_e'] > 0 else 0
-        omega_e_mech_base = X['omega_e']
+
+        # shaft torque
+        theta_s = X['theta_m'] - X['theta_e'] / par['N_gearbox']
+        omega_s = X['omega_m'] - X['omega_e'] / par['N_gearbox']
+        T_shaft = par['K'] * theta_s + par['D'] * omega_s
         
         # swing eqs for wt dynamics
-        dX['omega_m'] = (1/self.H_m) * (Tm - (par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)))
-        dX['omega_e'] = (1/self.H_e) * ((par['K'] * (X['theta_m'] - X['theta_e']) + par['D'] * (X['omega_m'] - omega_e_mech_base)) - Te)
+        dX['omega_m'] = (1/self.H_m) * (Tm - T_shaft)
+        dX['omega_e'] = (1/self.H_e) * (T_shaft/par['N_gearbox'] - Te)
         dX['theta_m'] = X['omega_m']
         dX['theta_e'] = X['omega_e']
 
@@ -154,14 +158,14 @@ class WindTurbine(DAEModel):
         self._debug_counter += 1
         if self._debug_counter == 1 or self._debug_counter == 2 or self._debug_counter == 3 or self._debug_counter == 4 or self._debug_counter == 5 or self._debug_counter == 6 or (self._debug_counter % 5000 == 0 and self._debug_counter <= 60000): 
             #print('Debug values (iteration', self._debug_counter, '):')
-            #print('  X[omega_m]:', X['omega_m'])
-            #print('  X[omega_e]:', X['omega_e'])
-            #print('  X[theta_m]:', X['theta_m'])
-            #print('  X[theta_e]:', X['theta_e'])
-            #print('dX[omega_m]:', dX['omega_m'])
-            #print('dX[omega_e]:', dX['omega_e'])
-            #print('dX[theta_m]:', dX['theta_m'])
-            #print('dX[theta_e]:', dX['theta_e'])
+            print('  X[omega_m]:', X['omega_m'])
+            print('  X[omega_e]:', X['omega_e'])
+            print('  X[theta_m]:', X['theta_m'])
+            print('  X[theta_e]:', X['theta_e'])
+            print('dX[omega_m]:', dX['omega_m'])
+            print('dX[omega_e]:', dX['omega_e'])
+            print('dX[theta_m]:', dX['theta_m'])
+            print('dX[theta_e]:', dX['theta_e'])
             #print('dX[pitch_PI_integral_state]:', dX['pitch_PI_integral_state'])
             #print('  X[pitch_PI_integral_state]:', X['pitch_PI_integral_state'])
             #print('dX[pitch_angle]:', dX['pitch_angle'])
@@ -194,7 +198,7 @@ class WindTurbine(DAEModel):
         X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
         # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
         # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
-        X['omega_e'] = omega_m_init_pu # per-unit (normalized by omega_m_rated)
+        X['omega_e'] = omega_m_init_pu*par['N_gearbox'] # per-unit (normalized by omega_m_rated)
         X['theta_m'] = 0.0
         X['theta_e'] = 0.0
         X['pitch_PI_integral_state'] = 0.0

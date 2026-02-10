@@ -127,12 +127,12 @@ def main():
     ps_lin = dps_mdl.PowerSystemModelLinearization(ps)
 
     for param in parameter_values:
-        """ # Set the parameter value in the power system model
-        ps.windturbine['WindTurbine'].par['H_m'] = param """
-        # Set inertia values (instance attributes, not struct fields)
+        # Set the parameter value in the power system model
+        ps.windturbine['WindTurbine'].par['N_gearbox'] = param
+        """ # Set inertia values (instance attributes, not struct fields)
         wt = ps.windturbine['WindTurbine']
         wt.H_m[:] = param
-        #wt.H_e[:] = param
+        #wt.H_e[:] = param """
 
         # Linearize
         ps_lin.linearize()
