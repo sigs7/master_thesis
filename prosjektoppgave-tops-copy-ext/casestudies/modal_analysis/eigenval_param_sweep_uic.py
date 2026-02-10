@@ -1,10 +1,19 @@
+import os
+import sys
+
+# Add project root (contains `src/`) to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import src.dynamic as dps
 import src.modal_analysis as dps_mdl
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.colors import LinearSegmentedColormap
 
 
@@ -34,6 +43,11 @@ class EigenSweep:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Add Matplotlib toolbar for zoom/pan
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.root)
+        self.toolbar.update()
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
         self.canvas.mpl_connect('resize_event', self.on_resize)
         self.plot_eigenvalues()
 
@@ -61,6 +75,7 @@ class EigenSweep:
         self.ax.set_xlabel('Real Part')
         self.ax.set_ylabel('Imaginary Part')
         self.ax.set_title('Eigenvalues with Participation Factors')
+        self.ax.grid(True, which='both', linestyle='--', alpha=0.3)
 
         self.fig.tight_layout()
         self.fig.canvas.draw()
@@ -98,13 +113,13 @@ class EigenSweep:
 
 
 def main():
-    import casestudies.ps_data.uic_ib_sig as model_data
+    import casestudies.ps_data.test_WT as model_data
 
     eigenvalues_list = []
     participation_factors_list = []
 
     # Define the parameter values to sweep
-    parameter_values = np.linspace(0.1,1,10)  # Example parameter values
+    parameter_values = np.linspace(1,100,10)  # Example parameter values
 
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
@@ -112,8 +127,12 @@ def main():
     ps_lin = dps_mdl.PowerSystemModelLinearization(ps)
 
     for param in parameter_values:
-        # Set the parameter value in the power system model
-        ps.vsc['UIC_sig'].par['Ki'] = param
+        """ # Set the parameter value in the power system model
+        ps.windturbine['WindTurbine'].par['H_m'] = param """
+        # Set inertia values (instance attributes, not struct fields)
+        wt = ps.windturbine['WindTurbine']
+        wt.H_m[:] = param
+        #wt.H_e[:] = param
 
         # Linearize
         ps_lin.linearize()

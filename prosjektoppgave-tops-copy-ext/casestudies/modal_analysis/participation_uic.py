@@ -1,3 +1,12 @@
+import os
+import sys
+
+# Add project root (contains `src/`) to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import src.dynamic as dps
 import src.modal_analysis as dps_mdl
 import numpy as np
@@ -97,7 +106,7 @@ class EigenvaluePlotter:
 
 
 def main():
-    import casestudies.ps_data.uic_ib_sig as model_data
+    import casestudies.ps_data.test_WT as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()

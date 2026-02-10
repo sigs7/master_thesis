@@ -1,3 +1,12 @@
+import os
+import sys
+
+# Add project root (contains `src/`) to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import src.dynamic as dps
 import src.modal_analysis as dps_mdl
 import src.plotting as dps_plt
@@ -6,7 +15,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
-    import casestudies.ps_data.k2a as model_data
+    import casestudies.ps_data.test_WT as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()
@@ -64,7 +73,7 @@ if __name__ == '__main__':
         print('mode ', critmode, ' gen',gen_number,' =', rev[tellerx, critmode] / (maxmode))
     # Plotting selected mode shape
     # mode_shape = rev[np.ix_(ps.gen['GEN'].state_idx_global['speed'], mode_idx)]
-    mode_shape = rev[np.ix_(ps.gen['GEN'].state_idx_global['speed'], [critmode, critmode+1])]
+    mode_shape = rev[np.ix_(ps.windturbine['WindTurbine'].state_idx_global['omega_m'], [critmode, critmode+1])]
     fig, ax = plt.subplots(1, mode_shape.shape[1], subplot_kw={'projection': 'polar'})
     for ax_, ms in zip(ax, mode_shape.T):
         dps_plt.plot_mode_shape(ms, ax=ax_, normalize=True)

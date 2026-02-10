@@ -170,7 +170,7 @@ class WindTurbine(DAEModel):
             print('  Pm (WT local pu):', Pm)
             print('  Pe (WT local pu):', Pe)
             print('  P_ref (Wt local pu):', P_ref)
-            print('cp: ', self.Cp(x, v))
+            print('cp: ', self.load_and_set_Cp(x, v))
             print('  Region:', 'MPPT' if P_ref < (P_rated) else 'Power Limiting')
             print('H_m:', self.H_m.astype(float))
             print('H_e:', self.H_e.astype(float))
@@ -206,7 +206,7 @@ class WindTurbine(DAEModel):
     def P_m(self, x, v):
         par = self.par
         wind_speed = self.wind_speed(x, v)
-        Cp = self.Cp(x, v)
+        Cp = self.load_and_set_Cp(x, v)
         
         # Mechanical power from wind: P = 0.5 * rho * A * v^3 * Cp
         # A = pi * R^2 (swept area)
@@ -274,7 +274,7 @@ class WindTurbine(DAEModel):
             fill_value=(0.0, optimal_powers[-1])  # Extrapolate: 0 below, max above
         )
 
-    def Cp(self, x, v):
+    def load_and_set_Cp(self, x, v):
         par = self.par
         X = self.local_view(x)
         
