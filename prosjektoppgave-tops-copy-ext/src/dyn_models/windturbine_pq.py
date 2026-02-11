@@ -65,7 +65,7 @@ class WindTurbine(DAEModel):
                 'input': 'P_e',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'output': 'p_e',
@@ -74,7 +74,7 @@ class WindTurbine(DAEModel):
                 'input': 'S_n_UIC',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'output': 'S_n',
@@ -83,7 +83,7 @@ class WindTurbine(DAEModel):
                 'output': 'P_ref',
                 'destination': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'input': 'p_ref',

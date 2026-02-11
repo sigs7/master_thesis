@@ -31,7 +31,7 @@ def load():
         },
 
         'vsc': {
-            'UIC_sig': [
+            'UIC_sig_pq': [
                 ['name', 'bus', 'S_n', 'V_n', 'v_ref', 'p_ref', 'q_ref',   'Ki',   'Kv',    'xf', 'perfect_tracking', 'T_filter'],
                 ['UIC1', 'B2',    20,   22,      1.0,     0.5,      0.0,     0.1,     0.0,    0.1,        1,          0.1   ] # PQ bus for consistent q_ref=0 init
             ],

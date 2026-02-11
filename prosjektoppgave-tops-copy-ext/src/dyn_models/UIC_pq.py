@@ -12,7 +12,7 @@ class UIC_sig_pq(DAEModel):
         self.bus_idx_red = np.array(np.zeros(self.n_units), dtype=[(key, int) for key in self.bus_ref_spec().keys()])
         
     def load_flow_pq(self):
-        return self.bus_idx['terminal'], -self.par['p_ref']*self.par['S_n'], self.par['v_ref']
+        return self.bus_idx['terminal'], -self.par['p_ref']*self.par['S_n'], -self.par['q_ref']*self.par['S_n']
 
     def int_par_list(self):
         return ['f']

@@ -20,38 +20,36 @@ if __name__ == '__main__':
 
     # region Model loading and initialisation
     import casestudies.ps_data.test_WT as model_data
+    #import casestudies.ps_data.test_WT_pq as model_data_pq
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)  # Load into a PowerSystemModel object
 
-    # Access the UIC_sig_pq VSC defined in the test_WT model
-    WT = ps.windturbine['WindTurbine']
+    # Set UIC p_ref from WT MPT for given wind speed (before power flow)
     wind_speed = 8.0
-    ideal_tsr = 9.0
-    start_rotor_speed_rad_s = ideal_tsr * wind_speed / WT.par['R'][0]
-    start_rotor_speed_RPM = start_rotor_speed_rad_s * 60 / (2 * np.pi)
-    WT._load_MPT_table()
-    P_ref = WT._mpt_interp(start_rotor_speed_rad_s) * WT.par['S_n'][0] / ps.vsc['UIC_sig_pq'].par['S_n'][0]
+    wt_model = ps.windturbine['WindTurbine']
+    uic_model = ps.vsc['UIC_sig']
+    #uic_model = ps.vsc['UIC_sig_pq']
+    P_ref = wt_model.P_ref_from_wind(wind_speed, uic_model.par['S_n'])
+    uic_model.par['p_ref'][:] = P_ref
+    uic_model.par['q_ref'][:] = 0.0
 
-    ps.vsc['UIC_sig_pq'].par['p_ref'][:] = P_ref 
-
-    """ WT = ps.windturbine['WindTurbine']
-    UIC = ps.vsc['UIC_sig']
-    radius = WT.par['R'][0]
-    ideal_tsr = 9.0 
-    start_wind_speed = 8  # m/s
-    start_rotor_speed_rad_s = ideal_tsr * start_wind_speed / radius  # rad/s (TSR = omega*R/v)
-    WT._load_MPT_table()  # Load MPT table before use (_mpt_interp is created lazily)
-    reference_active_power = WT._mpt_interp(start_rotor_speed_rad_s) * WT.par['S_n'][0] / UIC.par['S_n'][0]
-    UIC.par['p_ref'][:] = reference_active_power
-    UIC.par['q_ref'][:] = 0.0 """
-    
     ps.power_flow()  # Power flow calculation
+
+    # Patch UIC init so WT's init_from_connections uses our MPT-based p_ref (not S_internal from LF)
+    _orig_init = uic_model.init_from_load_flow
+    def _patched_init(x_0, v_0, S):
+        _orig_init(x_0, v_0, S)
+        uic_model._input_values['p_ref'][:] = P_ref
+        uic_model._input_values['q_ref'][:] = 0.0
+    uic_model.init_from_load_flow = _patched_init
 
     ps.init_dyn_sim()  # Initialise dynamic variables
     x0 = ps.x0.copy()  # Initial states
+    v0 = ps.v0.copy()
 
     wt_model = ps.windturbine['WindTurbine']
-    uic_model = ps.vsc['UIC_sig_pq']
+    uic_model = ps.vsc['UIC_sig']
+    #uic_model = ps.vsc['UIC_sig_pq']
     gen_model = ps.gen['GEN']  # Infinite bus generator
     
     # Override q_ref input value to ensure it's 0 (init_from_load_flow sets it from load flow solution)
@@ -62,7 +60,7 @@ if __name__ == '__main__':
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 30 # Simulation time
+    t_end = 120 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
@@ -152,7 +150,8 @@ if __name__ == '__main__':
         v = sol.v
         t = sol.t
 
-        sc_bus_idx = ps.vsc['UIC_sig_pq'].bus_idx_red['terminal'][0]
+        sc_bus_idx = ps.vsc['UIC_sig'].bus_idx_red['terminal'][0]
+        #sc_bus_idx = ps.vsc['UIC_sig_pq'].bus_idx_red['terminal'][0]
 
         # Short circuit
         """ if 1 <= t <= 1.05:
