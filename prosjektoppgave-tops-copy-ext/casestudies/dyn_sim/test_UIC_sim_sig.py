@@ -1,3 +1,7 @@
+import os, sys
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 from collections import defaultdict
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,12 +41,9 @@ if __name__ == '__main__':
     # endregion
 
     # region Runtime variables
-    P_m_stored = []
-    P_e_stored = []
-    E_f_stored = []
-    v_bus = []
     I_a_stored = []
     theta_stored = []
+    # Power references (external commands, from model parameters)
     p_ref_stored = []
     q_ref_stored = []
     v_ref_stored = []
@@ -86,7 +87,8 @@ if __name__ == '__main__':
         [result_dict[tuple(desc)].append(state) for desc, state in zip(ps.state_desc, x)]
 
         I_a = ps.vsc['UIC_sig'].i_a(x, v)
-        I_a_stored.append(np.abs(I_a)) 
+        I_a_abs = np.abs(I_a)
+        I_a_stored.append(I_a_abs)
         
         vsc_local = ps.vsc['UIC_sig'].local_view(x)
         vi_x = vsc_local['vi_x']
@@ -96,8 +98,13 @@ if __name__ == '__main__':
         theta_stored.append(np.angle(theta)) 
         
         vi_mag_stored.append(abs(vi))
-        p_ref_stored.append(ps.vsc['UIC_sig']._input_values['p_ref'])
-        q_ref_stored.append(ps.vsc['UIC_sig']._input_values['q_ref'])
+
+        # Use original external power references from model parameters (do not modify with xf)
+        p_ref_cmd = np.atleast_1d(ps.vsc['UIC_sig'].par['p_ref'])[0]
+        q_ref_cmd = np.atleast_1d(ps.vsc['UIC_sig'].par['q_ref'])[0]
+        p_ref_stored.append(p_ref_cmd)
+        q_ref_stored.append(q_ref_cmd)
+
         v_ref_stored.append(ps.vsc['UIC_sig']._input_values['v_ref'])
         
         s_actual = ps.vsc['UIC_sig'].s_e(x, v)
@@ -139,25 +146,10 @@ if __name__ == '__main__':
     ax[2].set_xlabel('Time (s)')
     ax[2].yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
     
-    # Save figure to testing folder with dynamic naming
+    # Layout for first figure
     plt.tight_layout()
     
-    # Create suffix based on active events and model name
-    events = []
-    if short_circuit_flag:
-        events.append('short_circuit')
-    if freq_response_flag:
-        events.append('freq_change')
-    if perfect_tracking_enabled:
-        events.append('perfect_tracking')
-    event_suffix = '_with_' + '_and_'.join(events) if events else '_no_disturbance'
-    suffix = f'_{model_name}{event_suffix}'
-    
-    filename1 = f'testing/uic_sig_simulation_results{suffix}.png'
-    plt.savefig(filename1, dpi=300, bbox_inches='tight')
-    print(f'Plot saved to: {filename1}')
-    
-    # Create second figure with references
+    # Create second figure with references (only displayed, not saved)
     fig2, ax2 = plt.subplots(3, figsize=(10, 8))
     fig2.suptitle(plot_title)
     
@@ -169,17 +161,17 @@ if __name__ == '__main__':
     ax2[0].grid(True)
     ax2[0].yaxis.set_major_formatter(FormatStrFormatter('%.5f'))
     
-    # Plot 2: P vs p_ref
+    # Plot 2: P vs p_ref (external command)
     ax2[1].plot(t_stored, np.array(P_actual_stored), label='P actual', linewidth=2, color='#FF1493')  # deeppink
-    ax2[1].plot(t_stored, np.array(p_ref_stored), '--', label='p_ref', linewidth=2, color='blue')
+    ax2[1].plot(t_stored, np.array(p_ref_stored), '--', label='P ref (command)', linewidth=2, color='blue')
     ax2[1].legend()
     ax2[1].set_ylabel('Active power (pu)')
     ax2[1].grid(True)
     ax2[1].yaxis.set_major_formatter(FormatStrFormatter('%.5f'))
     
-    # Plot 3: Q vs q_ref
+    # Plot 3: Q vs q_ref (external command)
     ax2[2].plot(t_stored, np.array(Q_actual_stored), label='Q actual', linewidth=2, color='#FF1493')  # deeppink
-    ax2[2].plot(t_stored, np.array(q_ref_stored), '--', label='q_ref', linewidth=2, color='blue')
+    ax2[2].plot(t_stored, np.array(q_ref_stored), '--', label='Q ref (command)', linewidth=2, color='blue')
     ax2[2].legend()
     ax2[2].set_ylabel('Reactive power (pu)')
     ax2[2].set_xlabel('Time (s)')
@@ -187,9 +179,5 @@ if __name__ == '__main__':
     ax2[2].yaxis.set_major_formatter(FormatStrFormatter('%.5f'))
     
     plt.tight_layout()
-    filename2 = f'testing/uic_sig_references_vs_actual{suffix}.png'
-    plt.savefig(filename2, dpi=300, bbox_inches='tight')
-    print(f'Plot saved to: {filename2}')
-    
     plt.show()
     # endregion

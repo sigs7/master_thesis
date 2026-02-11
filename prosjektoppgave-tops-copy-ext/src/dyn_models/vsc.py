@@ -1,6 +1,7 @@
 from src.dyn_models.blocks import *
 from .pll import PLL1
 from .UIC import UIC_sig
+from .UIC_pq import UIC_sig_pq  # expose UIC_sig_pq in the vsc module so dynamic model loader can find it
 
 class VSC(DAEModel):
     def __init__(self, *args, **kwargs):

@@ -64,7 +64,7 @@ class WindTurbine(DAEModel):
                 'input': 'P_e',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'output': 'p_e',
@@ -73,7 +73,7 @@ class WindTurbine(DAEModel):
                 'input': 'S_n_UIC',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'output': 'S_n',
@@ -82,7 +82,7 @@ class WindTurbine(DAEModel):
                 'output': 'P_ref',
                 'destination': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': 'UIC_sig_pq',
                     'id': self.par['UIC'],
                 },
                 'input': 'p_ref',
@@ -191,15 +191,18 @@ class WindTurbine(DAEModel):
         # S_n_UIC comes from UIC to know its base for conversion
         self._input_values['P_e'] = self.P_e(x_0, v_0)  # UIC local base
         self._input_values['S_n_UIC'] = self.S_n_UIC(x_0, v_0)  # UIC's S_n for base conversion
-        ideal_tsr_start = par['R'] * 1 / par['wind_rated']
+        ideal_tsr_start = par['R'] * par['omega_m_rated'] / par['wind_rated'] # 9
         start_omega_m_init = ideal_tsr_start * self.wind_speed(x_0, v_0) / (par['R']) # in rad/s
         
         omega_m_init_pu = start_omega_m_init / par['omega_m_rated']  # in pu
-        X['omega_m'] = omega_m_init_pu  # per-unit on mechanical base
-        # Electrical speed: omega_e = omega_m * (poles/2) in same per-unit base
-        # Both are normalized by omega_m_rated, so omega_e_pu = omega_m_pu * (poles/2)
-        X['omega_e'] = omega_m_init_pu*par['N_gearbox'] # per-unit (normalized by omega_m_rated)
-        X['theta_m'] = 0.0
+        X['omega_m'] = omega_m_init_pu 
+        X['omega_e'] = omega_m_init_pu * par['N_gearbox'] # per-unit on electrical base
+
+        Pm = self.P_m(x_0, v_0)
+        Tm = Pm / omega_m_init_pu if omega_m_init_pu > 0 else 0
+        theta_s = Tm / par['K'] # shaft angle
+
+        X['theta_m'] = theta_s # reference to electrical; shaft angle added to mech side theta_m = theta_s + theta_e
         X['theta_e'] = 0.0
         X['pitch_PI_integral_state'] = 0.0
         X['pitch_angle'] = 0.0
