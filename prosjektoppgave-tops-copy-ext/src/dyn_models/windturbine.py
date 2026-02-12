@@ -65,7 +65,7 @@ class WindTurbine(DAEModel):
                 'input': 'P_e',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': '*',
                     'id': self.par['UIC'],
                 },
                 'output': 'p_e',
@@ -74,7 +74,7 @@ class WindTurbine(DAEModel):
                 'input': 'S_n_UIC',
                 'source': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': '*',
                     'id': self.par['UIC'],
                 },
                 'output': 'S_n',
@@ -83,7 +83,7 @@ class WindTurbine(DAEModel):
                 'output': 'P_ref',
                 'destination': {
                     'container': 'vsc',
-                    'mdl': 'UIC_sig',
+                    'mdl': '*',
                     'id': self.par['UIC'],
                 },
                 'input': 'p_ref',
@@ -191,14 +191,13 @@ class WindTurbine(DAEModel):
         self._input_values['P_e'] = self.P_e(x_0, v_0)
         self._input_values['S_n_UIC'] = self.S_n_UIC(x_0, v_0)
 
-        R = float(np.asarray(par['R']).ravel()[0])
         w_rated = float(np.asarray(par['omega_m_rated']).ravel()[0])
-        v_rated = float(np.asarray(par['wind_rated']).ravel()[0])
-        v_wind = float(np.asarray(self.wind_speed(x_0, v_0)).ravel()[0])
+        u_rated = float(np.asarray(par['wind_rated']).ravel()[0])
+        u_start = float(np.asarray(self.wind_speed(x_0, v_0)).ravel()[0])
         N = float(np.asarray(par['N_gearbox']).ravel()[0])
         K = float(np.asarray(par['K']).ravel()[0])
 
-        # Solve P_m(omega) = MPT(omega) for consistent init; fallback to v/v_rated
+        # Solve P_m(omega) = MPT(omega) for consistent init; fallback to u_start / u_rated
         if not hasattr(self, '_mpt_interp'):
             self._load_MPT_table()
         def _res(om):
@@ -206,29 +205,52 @@ class WindTurbine(DAEModel):
             X['pitch_angle'] = 0.0
             return float(self.P_m(x_0, v_0).ravel()[0]) - float(self._mpt_interp(om * w_rated))
         try:
-            omega_m_init_pu = brentq(_res, 0.05, 1.0)
+            omega_m_init_pu = brentq(_res, 0.05, 1.0) # scipy.optimize.brentq to finds where _res function is 0 -> omega_m_init_pu
         except ValueError:
-            omega_m_init_pu = np.clip(v_wind / v_rated, 0.05, 1.0)
+            omega_m_init_pu = np.clip(u_start / u_rated, 0.05, 1.0) # if brentq fails, use approximation start wind speed / rated wind speed
+            print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
         X['omega_m'] = omega_m_init_pu
         X['omega_e'] = omega_m_init_pu * N
         X['pitch_angle'] = max(0.0, float(np.asarray(par['min_pitch']).ravel()[0]))
 
-        # Shaft twist init: theta_s = Tm/K so T_shaft = Tm at steady state. Prevents large omega_e transient
-        # (With theta_m=theta_e=0, T_shaft=0 causes Te >> T_shaft → omega_e plummets due to small H_e)
+        # Shaft twist init: theta_s = Tm/K so T_shaft = Tm at steady state, omega_e-omega_m = 0 at steady state
         Pm = float(np.asarray(self.P_m(x_0, v_0)).ravel()[0])
         Tm = Pm / omega_m_init_pu if omega_m_init_pu > 0 else 0
         theta_s = Tm / K
         X['theta_m'] = theta_s
-        X['theta_e'] = 0.0
+        X['theta_e'] = 0.0 # setting electrical angle as reference
 
-        if omega_m_init_pu == 1.0:
-            X['pitch_PI_integral_state'] = 0.0
-            X['pitch_angle'] = 0.0 # must change this depending on wind speed
-            self._pitch_angle = 0.0
+        if omega_m_init_pu >= 0.99: 
+            # Region 3: when initializing at rated speed, solve for pitch such that P_m = P_rated
+            min_pitch = float(np.asarray(par['min_pitch']).ravel()[0])
+            max_pitch = float(np.asarray(par['max_pitch']).ravel()[0])
+            Ki = float(np.asarray(par['Ki_pitch']).ravel()[0])
+            X['omega_m'] = 1.0  # ensure rated for P_m eval
+            X['omega_e'] = N
+            self.load_and_set_Cp(x_0, v_0)  # ensure Cp table loaded
+            def _res_pitch(pitch_rad):
+                X['pitch_angle'] = pitch_rad
+                return float(self.P_m(x_0, v_0).ravel()[0]) - 1.0
+            try:
+                pitch_eq = brentq(_res_pitch, min_pitch, max_pitch) # again brentq solves for where _res_pitch func is 0 -> pitch is the right val for P_m = 1 pu
+            except ValueError:
+                P_at_min = _res_pitch(min_pitch) + 1.0 # fallback for when there is no solution for brentq (approx)
+                pitch_eq = max_pitch if P_at_min > 1.0 else min_pitch # if P_m at min pitch is higher than 1 pu, use max pitch, else use min pitch
+                print('Brentq pitch init failed, using approximation min pitch or max pitch')
+            pitch_eq = np.clip(pitch_eq, min_pitch, max_pitch)
+            X['pitch_angle'] = pitch_eq
+            X['pitch_PI_integral_state'] = pitch_eq / Ki if Ki > 0 else 0.0 # pitch_reference = Ki * integral + Kp * error, error = 0 in ss
+            self._pitch_angle = pitch_eq
+            # Region 3: P_m = P_rated = 1.0, so recompute shaft twist
+            Pm = 1.0
+            Tm = Pm  # omega_m = 1 in ss region 3
+            theta_s = Tm / K # shaft twist in ss region 3 (from Tm = K * theta_s + D * omega_s with omega_s = 0 in ss)
+            X['theta_m'] = theta_s
         else:
+            # Region 2: MPPT, pitch at minimum (typically 0)
             X['pitch_PI_integral_state'] = 0.0
-            X['pitch_angle'] = 0.0
-            self._pitch_angle = 0.0
+            X['pitch_angle'] = max(0.0, float(np.asarray(par['min_pitch']).ravel()[0]))
+            self._pitch_angle = float(X['pitch_angle'])
 
         return
 
@@ -265,7 +287,8 @@ class WindTurbine(DAEModel):
         return P_mpt * self.par['S_n'] / self.S_n_UIC(x, v) # WT pu -> UIC pu
 
     def P_ref_from_wind(self, wind_speed_mps, S_n_UIC):
-        """P_ref in UIC pu for given wind speed (no state needed). Use before power flow."""
+        # used in init for UIC to avoid mismatch in power setpoints
+        # finds the optimal power given a wind speed, assuming optimal tsr (using rated wind speed and rated rotor speed)
         if not hasattr(self, '_mpt_interp'):
             self._load_MPT_table()
         par = self.par
@@ -394,27 +417,16 @@ class WindTurbine(DAEModel):
         # Cp is dimensionless - return the coefficient directly
         return Cp_table
 
-    def wind_speed(self, x, v):
-        """Returns wind speed in m/s from interpolated wind data file.
-        
-        Uses the first two columns of the .hh wind data file:
-        - Column 1: time in seconds
-        - Column 2: wind speed in m/s
-        
-        Interpolates smoothly between data points using timestep 5e-3 seconds.
-        """
-        """ # Calculate current simulation time from counter and timestep
-        t = self._debug_counter * self._dt
-        
-        # Interpolate wind speed at current time for smooth transitions
-        u_wind = float(self._wind_interp(t))
- """
-        u_wind = 8.0
+    def wind_speed_init(self):
+        """Wind speed at t=0 (m/s). No state needed. Use for power flow / init."""
+        return 11.5
 
-        # Change wind speed after a certain number of iterations
-        # Counter is initialized in __init__ and incremented in state_derivatives
+    def wind_speed(self, x, v):
+        """Returns wind speed in m/s."""
+        # Option: read from wind file - uncomment to use interpolated .hh data
+        # t = self._debug_counter * self._dt
+        # return float(self._wind_interp(t))
+        u_wind = 11.5
         if hasattr(self, '_debug_counter') and self._debug_counter >= 24000:
-            u_wind = 11.5
-        
-        return u_wind      
-    
+            u_wind = 8.0
+        return u_wind

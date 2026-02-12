@@ -20,40 +20,26 @@ if __name__ == '__main__':
 
     # region Model loading and initialisation
     import casestudies.ps_data.test_WT as model_data
-    #import casestudies.ps_data.test_WT_pq as model_data_pq
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)  # Load into a PowerSystemModel object
 
-    # Set UIC p_ref from WT MPT for given wind speed (before power flow)
-    wind_speed = 8.0
+    # Set UIC p_ref from WT MPT - use WT's wind_speed_init() so it always matches
     wt_model = ps.windturbine['WindTurbine']
+    wind_speed = wt_model.wind_speed_init()
     uic_model = ps.vsc['UIC_sig']
     #uic_model = ps.vsc['UIC_sig_pq']
     P_ref = wt_model.P_ref_from_wind(wind_speed, uic_model.par['S_n'])
     uic_model.par['p_ref'][:] = P_ref
-    uic_model.par['q_ref'][:] = 0.0
+    uic_model.par['q_ref'][:] = 0.0 # will be overridden for pv bus, will be affected by xf loss (visible in pq run)
 
     ps.power_flow()  # Power flow calculation
-
-    # Patch UIC init so WT's init_from_connections uses our MPT-based p_ref (not S_internal from LF)
-    _orig_init = uic_model.init_from_load_flow
-    def _patched_init(x_0, v_0, S):
-        _orig_init(x_0, v_0, S)
-        uic_model._input_values['p_ref'][:] = P_ref
-        uic_model._input_values['q_ref'][:] = 0.0
-    uic_model.init_from_load_flow = _patched_init
 
     ps.init_dyn_sim()  # Initialise dynamic variables
     x0 = ps.x0.copy()  # Initial states
     v0 = ps.v0.copy()
 
-    wt_model = ps.windturbine['WindTurbine']
-    uic_model = ps.vsc['UIC_sig']
-    #uic_model = ps.vsc['UIC_sig_pq']
     gen_model = ps.gen['GEN']  # Infinite bus generator
     
-    # Override q_ref input value to ensure it's 0 (init_from_load_flow sets it from load flow solution)
-    #uic_model._input_values['q_ref'][:] = 0.0
     wt_name = wt_model.par['name'][0]
     uic_name = uic_model.par['name'][0]
     gen_name = gen_model.par['name'][0]
