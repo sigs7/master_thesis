@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # region Runtime variables
     # Additional plot variables
-    P_m_stored = []
+    P_aero_stored = []
     P_e_stored = []
     P_ref_stored = []
     v_bus = []
@@ -94,10 +94,10 @@ if __name__ == '__main__':
     gen_s_n = gen_model.par['S_n'][0]
     v_t_uic = uic_model.v_t(x0, v0)[0]
     v_bus.append(np.abs(v_t_uic))
-    P_m_local = wt_model.P_m(x0, v0)[0]
+    P_aero_local = wt_model.P_aero(x0, v0)[0]
     P_e_uic = wt_model.P_e(x0, v0)[0]
     P_ref_uic = wt_model.P_ref(x0, v0)[0]
-    P_m_stored.append(P_m_local * wt_s_n / sys_s_n)
+    P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)
     P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)
     P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)
     P_gen_local = gen_model.p_e(x0, v0)[0]
@@ -152,14 +152,14 @@ if __name__ == '__main__':
 
         v_t_uic = uic_model.v_t(x, v)[0] 
         v_bus.append(np.abs(v_t_uic))  
-        P_m_local = wt_model.P_m(x, v)[0] 
+        P_aero_local = wt_model.P_aero(x, v)[0] 
         P_e_uic = wt_model.P_e(x, v)[0]  
         P_ref_uic = wt_model.P_ref(x, v)[0]  
         sys_s_n = wt_model.sys_par['s_n']
         uic_s_n = uic_model.par['S_n'][0]
         wt_s_n = wt_model.par['S_n'][0]
         gen_s_n = gen_model.par['S_n'][0]
-        P_m_stored.append(P_m_local * wt_s_n / sys_s_n)  # WT local → system
+        P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)  # WT local → system
         P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)  
         P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)  
         P_gen_local = gen_model.p_e(x, v)[0]  
@@ -268,8 +268,8 @@ if __name__ == '__main__':
     fig3, ax3 = plt.subplots(4, 1, sharex=True, figsize=(9, 12))
     fig3.suptitle('Power', fontsize=14)
 
-    # Power comparison (WT view): P_m, P_e at UIC, and P_ref from WT
-    ax3[0].plot(t_stored, P_m_stored, label='P_m (mechanical, WT)', color='orange', linewidth=1.5)
+    # Power comparison (WT view): P_aero, P_e at UIC, and P_ref from WT
+    ax3[0].plot(t_stored, P_aero_stored, label='P_aero (aerodynamic, WT)', color='orange', linewidth=1.5)
     ax3[0].plot(t_stored, P_e_stored, label='P_e (electrical at UIC)', color='#FF1493', linewidth=1.5)  # deeppink
     ax3[0].plot(t_stored, P_ref_stored, label='P_ref, WT → UIC (command)', color='blue', linewidth=1.5, linestyle='--')
     ax3[0].set_ylabel('Power (p.u., sys S_n)')
