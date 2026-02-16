@@ -43,7 +43,7 @@ class WindTurbine(DAEModel):
         # Use linear interpolation for natural smooth transitions
         self._wind_interp = interp1d(wind_times, wind_speeds, kind='linear', 
                                      bounds_error=False, fill_value=(wind_speeds[0], wind_speeds[-1]))
-        #self._dt = 5e-3  # Timestep in seconds
+        self._dt = 5e-3  # Timestep in seconds
 
         # convert all WT params to pu:
         w_m_base = self.par['omega_m_rated']  # rad/s
@@ -176,7 +176,6 @@ class WindTurbine(DAEModel):
             print('  Pe (WT local pu):', Pe)
             print('  P_ref (Wt local pu):', P_ref)
             print('cp: ', self.load_and_set_Cp(x, v))
-            print('  Region:', 'MPPT')
             print('H_m:', self.H_m.astype(float))
             print('H_e:', self.H_e.astype(float))
             print('par[K]:', par['K'].astype(float))
@@ -198,18 +197,23 @@ class WindTurbine(DAEModel):
         #N = float(np.asarray(par['N_gearbox']).ravel()[0])
         K = float(np.asarray(par['K']).ravel()[0])
 
-        # Solve P_aero(omega) = MPT(omega) for consistent init; fallback to u_start / u_rated
-        if not hasattr(self, '_mpt_interp'):
-            self._load_MPT_table()
-        def _res(om):
-            X['omega_m'] = om
-            X['pitch_angle'] = 0.0
-            return float(self.P_aero(x_0, v_0).ravel()[0]) - float(self._mpt_interp(om * w_rated))
-        try:
-            omega_m_init_pu = brentq(_res, 0.05, 1.0) # scipy.optimize.brentq to finds where _res function is 0 -> omega_m_init_pu
-        except ValueError:
-            omega_m_init_pu = np.clip(u_start / u_rated, 0.05, 1.0) # if brentq fails, use approximation start wind speed / rated wind speed
-            print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
+        if u_start > u_rated:
+            # Region 3 -> rated speed
+            omega_m_init_pu = 1.0
+        else:
+            # Region 2 -> MPPT, pitch at minimum (typically 0)
+            # Solve P_aero(omega) = MPT(omega) for consistent init; fallback to u_start / u_rated
+            if not hasattr(self, '_mpt_interp'):
+                self._load_MPT_table()
+            def _res(om):
+                X['omega_m'] = om
+                X['pitch_angle'] = 0.0
+                return float(self.P_aero(x_0, v_0).ravel()[0]) - float(self._mpt_interp(om * w_rated))
+            try:
+                omega_m_init_pu = brentq(_res, 0.05, 1.0) # scipy.optimize.brentq to finds where _res function is 0 -> omega_m_init_pu
+            except ValueError:
+                omega_m_init_pu = np.clip(u_start / u_rated, 0.05, 1.0) # if brentq fails, use approximation start wind speed / rated wind speed
+                print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
         X['omega_m'] = omega_m_init_pu
         X['omega_e'] = omega_m_init_pu #* N
         X['pitch_angle'] = max(0.0, float(np.asarray(par['min_pitch']).ravel()[0]))
@@ -218,8 +222,8 @@ class WindTurbine(DAEModel):
         P_aero_init = float(np.asarray(self.P_aero(x_0, v_0)).ravel()[0])
         Tm = P_aero_init / omega_m_init_pu if omega_m_init_pu > 0 else 0
         theta_s = Tm / K
-        X['theta_m'] = theta_s
-        X['theta_e'] = 0.0  # setting electrical angle as reference
+        X['theta_m'] = 0.0
+        X['theta_e'] = -theta_s  # setting electrical angle as reference
 
         if omega_m_init_pu >= 0.99: 
             # Region 3: when initializing at rated speed, solve for pitch such that P_aero = P_rated
@@ -246,7 +250,7 @@ class WindTurbine(DAEModel):
             P_aero = 1.0
             Tm = P_aero  # omega_m = 1 in ss region 3
             theta_s = Tm / K # shaft twist in ss region 3 (from Tm = K * theta_s + D * omega_s with omega_s = 0 in ss)
-            X['theta_m'] = theta_s
+            X['theta_e'] = -theta_s
         else:
             # Region 2: MPPT, pitch at minimum (typically 0)
             X['pitch_PI_integral_state'] = 0.0
@@ -422,14 +426,14 @@ class WindTurbine(DAEModel):
 
     def wind_speed_init(self):
         """Wind speed at t=0 (m/s). No state needed. Use for power flow / init."""
-        return 8.0
+        return float(self._wind_interp(0))
 
     def wind_speed(self, x, v):
         """Returns wind speed in m/s."""
         # Option: read from wind file - uncomment to use interpolated .hh data
-        # t = self._debug_counter * self._dt
-        # return float(self._wind_interp(t))
-        u_wind = 8.0
+        t = self._debug_counter * self._dt
+        return float(self._wind_interp(t))
+        """ u_wind = 8.0
         if hasattr(self, '_debug_counter') and self._debug_counter >= 24000:
             u_wind = 11.5
-        return u_wind
+        return u_wind """
