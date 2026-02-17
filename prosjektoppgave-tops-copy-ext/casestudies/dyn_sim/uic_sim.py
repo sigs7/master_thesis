@@ -85,6 +85,7 @@ if __name__ == '__main__':
     # Store initial point (t0=0, x0, v0) so plots include first time step.
     # Use the same algebraic solution as the DAE solver (solve_algebraic(0,x0)), not power-flow voltage.
     # Otherwise the first point uses PF v while the solver uses Y*v=i_inj(x0) v, causing a visible jump.
+    wt_model._sim_time = 0  # t=0 for wind file lookup at init
     v0 = ps.solve_algebraic(0, x0)
     result_dict['Global', 't'].append(0)
     [result_dict[tuple(desc)].append(state) for desc, state in zip(ps.state_desc, x0)]
@@ -131,10 +132,12 @@ if __name__ == '__main__':
 
     # Simulation loop starts here!
     while t < t_end:
+        wt_model._sim_time = sol.t  # set before step so WT wind lookup uses correct time
         result = sol.step()
         x = sol.y
         v = sol.v
         t = sol.t
+        wt_model._sim_time = t  # update for storage/plot
 
         sc_bus_idx = ps.vsc['UIC_sig'].bus_idx_red['terminal'][0]
         #sc_bus_idx = ps.vsc['UIC_sig_pq'].bus_idx_red['terminal'][0]

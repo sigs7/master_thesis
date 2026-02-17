@@ -216,6 +216,7 @@ class WindTurbine(DAEModel):
                 print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
         X['omega_m'] = omega_m_init_pu
         X['omega_e'] = omega_m_init_pu #* N
+        print('omega_m_init_pu:', omega_m_init_pu)
         X['pitch_angle'] = max(0.0, float(np.asarray(par['min_pitch']).ravel()[0]))
 
         # Shaft twist init: theta_s = Tm/K so T_shaft = Tm at steady state, omega_e-omega_m = 0 at steady state
@@ -426,14 +427,18 @@ class WindTurbine(DAEModel):
 
     def wind_speed_init(self):
         """Wind speed at t=0 (m/s). No state needed. Use for power flow / init."""
-        return float(self._wind_interp(0))
+        return 8.0 #float(self._wind_interp(0))
 
     def wind_speed(self, x, v):
-        """Returns wind speed in m/s."""
-        # Option: read from wind file - uncomment to use interpolated .hh data
-        t = self._debug_counter * self._dt
-        return float(self._wind_interp(t))
-        """ u_wind = 8.0
-        if hasattr(self, '_debug_counter') and self._debug_counter >= 24000:
-            u_wind = 11.5
-        return u_wind """
+        """Returns wind speed in m/s. Uses _sim_time (s) when set by sim loop, else 0 (init)."""
+        t = getattr(self, '_sim_time', 0)
+        if t < 30:
+            return 8.0
+        elif t < 60:
+            return 12.0
+        elif t < 90:
+            return 15.0
+        else:
+            return 19.0
+        """ t = getattr(self, '_sim_time', 0)
+        return float(self._wind_interp(t)) """
