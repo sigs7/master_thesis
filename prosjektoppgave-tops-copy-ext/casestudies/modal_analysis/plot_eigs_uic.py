@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
-    import casestudies.ps_data.test_WT as model_data
+    import casestudies.ps_data.uic_ib_sig as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()
@@ -36,8 +36,8 @@ if __name__ == '__main__':
     print(ps_lin.eigs)
     print(' ')
     print('Speed states: ')
-    speedstates = ps.gen['GEN'].state_idx_global['speed']
-    print(speedstates)
+    speedstates_UIC = ps.gen['GEN'].state_idx_global['speed']
+    print(speedstates_UIC)
     # Get mode shape for electromechanical modes
     print(' ')
     damplim = 0.0
@@ -52,11 +52,11 @@ if __name__ == '__main__':
     Gennumber=0
     tellermax=0
     critmode = int(input('Specify mode index for printing generator speed MODE SHAPES : '))
-    for tellerx in speedstates:
+    for tellerx in speedstates_UIC:
         if abs(rev[tellerx, critmode]) > maxmode:
             maxmode = abs(rev[tellerx, critmode])
             tellermax=tellerx
-            Gennumber= int((tellerx-speedstates[0]+6)/6)
+            Gennumber= int((tellerx-speedstates_UIC[0]+6)/6)
 
     print(' ')
     print('Selected eigenvalue = ')
@@ -68,12 +68,12 @@ if __name__ == '__main__':
     # printing eigenvectors
     print('Right eigenvectors = ')
     gen_number = 0
-    for tellerx in speedstates:
+    for tellerx in speedstates_UIC:
         gen_number =gen_number + 1
         print('mode ', critmode, ' gen',gen_number,' =', rev[tellerx, critmode] / (maxmode))
     # Plotting selected mode shape
     # mode_shape = rev[np.ix_(ps.gen['GEN'].state_idx_global['speed'], mode_idx)]
-    mode_shape = rev[np.ix_(ps.windturbine['WindTurbine'].state_idx_global['omega_m'], [critmode, critmode+1])]
+    mode_shape = rev[np.ix_(ps.gen['GEN'].state_idx_global['speed'], [critmode, critmode+1])]
     fig, ax = plt.subplots(1, mode_shape.shape[1], subplot_kw={'projection': 'polar'})
     for ax_, ms in zip(ax, mode_shape.T):
         dps_plt.plot_mode_shape(ms, ax=ax_, normalize=True)
