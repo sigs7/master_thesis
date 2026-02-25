@@ -9,10 +9,9 @@ class WindTurbine(DAEModel):
     """
     'windturbine': {
         'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'N_gearbox','gb_gen_efficiency','MPT_filename', 'Cp_filename'],
-            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90,           0,           2,              1.225,    120.97,       1.0,       7.53,      10.6,           1,   0.95,           'MPT_Kopt2150.csv', 'Cp_Kopt2150.csv']
-            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -,  eta_gb*eta_gen (0-1), -, -] 
-                
+            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',          'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'gb_gen_efficiency','MPT_filename', 'Cp_filename'],
+            ['WT1', 'UIC1',  15,    22,          310619488.,        1836784,        697376449.,    71186519.,       0.66,           0.2,           0.1,         90,           0,           2,              1.225,    120.97,       1.0,       7.53,      10.6,   0.95,           'MPT_Kopt2150.csv', 'Cp_Kopt2150.csv']
+            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s,  eta_gb*eta_gen (0-1), -, -]
         ],
     }
     """
@@ -43,7 +42,6 @@ class WindTurbine(DAEModel):
         # Use linear interpolation for natural smooth transitions
         self._wind_interp = interp1d(wind_times, wind_speeds, kind='linear', 
                                      bounds_error=False, fill_value=(wind_speeds[0], wind_speeds[-1]))
-        self._dt = 5e-3  # Timestep in seconds
 
         # convert all WT params to pu:
         w_m_base = self.par['omega_m_rated']  # rad/s
@@ -104,21 +102,18 @@ class WindTurbine(DAEModel):
         par = self.par
         P_aero = self.P_aero(x, v)
         Pe = self.P_e(x, v) * self.S_n_UIC(x, v) / par['S_n'] # UIC pu -> WT pu
-        P_ref = self.P_ref(x, v) * self.S_n_UIC(x, v) / par['S_n']  # P_ref is in UIC local base 
-        
-        Tm = P_aero / X['omega_m'] if X['omega_m'] > 0 else 0
-        # P_e is electrical output; mechanical power drawn from shaft = P_e/eta
-        Pe_mech = Pe / par['gb_gen_efficiency'] if par['gb_gen_efficiency'] > 0 else Pe
-        Te = Pe_mech / X['omega_e'] if X['omega_e'] > 0 else 0
+        Ta = P_aero / X['omega_m'] if X['omega_m'] > 0 else 0
+        Tm = Ta * par['gb_gen_efficiency']
+        Te = Pe / X['omega_e'] if X['omega_e'] > 0 else 0
 
         # shaft torque
-        theta_s = X['theta_m'] - X['theta_e'] #/ par['N_gearbox']
-        omega_s = X['omega_m'] - X['omega_e'] #/ par['N_gearbox']
+        theta_s = X['theta_m'] - X['theta_e']
+        omega_s = X['omega_m'] - X['omega_e']
         T_shaft = par['K'] * theta_s + par['D'] * omega_s
-        
+
         # swing eqs for wt dynamics
         dX['omega_m'] = (1/self.H_m) * (Tm - T_shaft)
-        dX['omega_e'] = (1/self.H_e) * (T_shaft - Te)# (T_shaft/par['N_gearbox'] - Te)
+        dX['omega_e'] = (1/self.H_e) * (T_shaft - Te)
         dX['theta_m'] = X['omega_m']
         dX['theta_e'] = X['omega_e']
 
@@ -129,7 +124,7 @@ class WindTurbine(DAEModel):
         e_omega = X['omega_m'][0] - omega_m_ref
         pitch_reference = 0.0
 
-        if e_omega < -0.05:
+        if e_omega < -0.05: # possible issue in shifting regions
             # Region 2: MPPT (below rated) - reset integral
             dX_pitch_integral = 0.0
         else:  # Region 3: Power limiting (speed approaching rated)
@@ -174,7 +169,7 @@ class WindTurbine(DAEModel):
             #print('  pitch_angle:', self._pitch_angle)
             print('  P_aero (WT local pu):', P_aero)
             print('  Pe (WT local pu):', Pe)
-            print('  P_ref (Wt local pu):', P_ref)
+            print('  P_ref (Wt local pu):', self._P_ref_instant(x, v))
             print('cp: ', self.load_and_set_Cp(x, v))
             print('H_m:', self.H_m.astype(float))
             print('H_e:', self.H_e.astype(float))
@@ -197,23 +192,21 @@ class WindTurbine(DAEModel):
         #N = float(np.asarray(par['N_gearbox']).ravel()[0])
         K = float(np.asarray(par['K']).ravel()[0])
 
-        if u_start > u_rated:
-            # Region 3 -> rated speed
-            omega_m_init_pu = 1.0
-        else:
-            # Region 2 -> MPPT, pitch at minimum (typically 0)
-            # Solve P_aero(omega) = MPT(omega) for consistent init; fallback to u_start / u_rated
-            if not hasattr(self, '_mpt_interp'):
-                self._load_MPT_table()
-            def _res(om):
-                X['omega_m'] = om
-                X['pitch_angle'] = 0.0
-                return float(self.P_aero(x_0, v_0).ravel()[0]) - float(self._mpt_interp(om * w_rated))
-            try:
-                omega_m_init_pu = brentq(_res, 0.05, 1.0) # scipy.optimize.brentq to finds where _res function is 0 -> omega_m_init_pu
-            except ValueError:
-                omega_m_init_pu = np.clip(u_start / u_rated, 0.05, 1.0) # if brentq fails, use approximation start wind speed / rated wind speed
-                print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
+        # Region 2 -> MPPT, pitch at minimum (typically 0)
+        # Solve P_aero(omega) = MPT(omega) for consistent init; fallback to u_start / u_rated
+        if not hasattr(self, '_mpt_interp'):
+            self._load_MPT_table()
+        eta = float(np.asarray(par['gb_gen_efficiency']).ravel()[0])
+        def _res(om):
+            X['omega_m'] = om
+            X['pitch_angle'] = 0.0
+            # MPT = electrical power; eta*P_aero = electrical output, so solve eta*P_aero = MPT
+            return eta * float(self.P_aero(x_0, v_0).ravel()[0]) - float(self._mpt_interp(om * w_rated))
+        try:
+            omega_m_init_pu = brentq(_res, 0.05, 1.0) # scipy.optimize.brentq to finds where _res function is 0 -> omega_m_init_pu
+        except ValueError:
+            omega_m_init_pu = np.clip(u_start / u_rated, 0.05, 1.0) # if brentq fails, use approximation start wind speed / rated wind speed
+            print('Brentq omega_m init failed, using approximation start wind speed / rated wind speed')
         X['omega_m'] = omega_m_init_pu
         X['omega_e'] = omega_m_init_pu #* N
         print('omega_m_init_pu:', omega_m_init_pu)
@@ -221,7 +214,8 @@ class WindTurbine(DAEModel):
 
         # Shaft twist init: theta_s = Tm/K so T_shaft = Tm at steady state, omega_e-omega_m = 0 at steady state
         P_aero_init = float(np.asarray(self.P_aero(x_0, v_0)).ravel()[0])
-        Tm = P_aero_init / omega_m_init_pu if omega_m_init_pu > 0 else 0
+        Ta = P_aero_init / omega_m_init_pu if omega_m_init_pu > 0 else 0
+        Tm = Ta * par['gb_gen_efficiency']
         theta_s = Tm / K
         X['theta_m'] = 0.0
         X['theta_e'] = -theta_s  # setting electrical angle as reference
@@ -249,7 +243,7 @@ class WindTurbine(DAEModel):
             self._pitch_angle = pitch_eq
             # Region 3: P_aero = P_rated = 1.0, so recompute shaft twist
             P_aero = 1.0
-            Tm = P_aero  # omega_m = 1 in ss region 3
+            Tm = P_aero * par['gb_gen_efficiency'] # omega_m = 1 in ss region 3
             theta_s = Tm / K # shaft twist in ss region 3 (from Tm = K * theta_s + D * omega_s with omega_s = 0 in ss)
             X['theta_e'] = -theta_s
         else:
@@ -275,7 +269,7 @@ class WindTurbine(DAEModel):
         
         return P_aero_pu  # WT pu
  
-    def P_ref(self, x, v):
+    def _P_ref_instant(self, x, v):
         X = self.local_view(x)
         par = self.par
         # Load MPT table on first call
@@ -288,26 +282,42 @@ class WindTurbine(DAEModel):
         omega_rated = np.asarray(self.par['omega_m_rated']).ravel()[0]
         rotor_speed_rad_s = float(omega_m_pu * omega_rated)
         P_mpt = float(self._mpt_interp(rotor_speed_rad_s))
-        P_mpt_elec = par['gb_gen_efficiency'][0] * P_mpt  # electrical power reference (gearbox+gen losses)
+        # MPT table is electrical power (pu); eta already applied in Tm = Ta*eta on aero->mech side
+        return P_mpt  # WT pu
 
-        # Convert to system base for communication with VSC/UIC
-        return P_mpt_elec * self.par['S_n'] / self.S_n_UIC(x, v) # WT pu -> UIC pu
+    def P_ref(self, x, v):
+        par = self.par
+        return self._P_ref_instant(x, v) * par['S_n'] / self.S_n_UIC(x, v)
 
     def P_ref_from_wind(self, wind_speed_mps, S_n_UIC):
-        # used in init for UIC to avoid mismatch in power setpoints
-        # finds the optimal power given a wind speed, assuming optimal tsr (using rated wind speed and rated rotor speed)
+        """P_ref in UIC pu. Uses same brentq as init (eta*P_aero=MPT) so load flow matches."""
+        wind_speed_mps = float(np.asarray(wind_speed_mps).ravel()[0])
         if not hasattr(self, '_mpt_interp'):
             self._load_MPT_table()
+        self.load_and_set_Cp(None, None)  # load Cp table only
         par = self.par
-        R = float(np.asarray(par['R']).ravel()[0])
         w_rated = float(np.asarray(par['omega_m_rated']).ravel()[0])
-        wind_rated = float(np.asarray(par['wind_rated']).ravel()[0])
-        lam_ref = R * w_rated / wind_rated
-        omega_rad = lam_ref * wind_speed_mps / R
-        P_mpt = float(self._mpt_interp(omega_rad))
-        P_mpt_elec = par['gb_gen_efficiency'][0] * P_mpt  # electrical power reference (gearbox+gen losses)
-        S_n_WT = float(np.asarray(par['S_n']).ravel()[0])
-        return P_mpt_elec * S_n_WT / float(np.asarray(S_n_UIC).ravel()[0])
+        eta = float(np.asarray(par['gb_gen_efficiency']).ravel()[0])
+        R = float(np.asarray(par['R']).ravel()[0])
+        rho = float(np.asarray(par['rho']).ravel()[0])
+        S_n = float(np.asarray(par['S_n']).ravel()[0])
+
+        def _res(om):
+            omega_rad = om * w_rated
+            tsr = omega_rad * R / wind_speed_mps if wind_speed_mps > 0 else 0
+            pa = np.clip(0.0, self._cp_interp.grid[0].min(), self._cp_interp.grid[0].max())
+            tsr_c = np.clip(tsr, self._cp_interp.grid[1].min(), self._cp_interp.grid[1].max())
+            Cp = float(self._cp_interp(np.array([pa, tsr_c]))[0])
+            P_aero = 0.5 * rho * np.pi * R**2 * wind_speed_mps**3 * Cp / (S_n * 1e6)
+            return eta * P_aero - float(self._mpt_interp(omega_rad))
+
+        try:
+            omega_init = float(brentq(_res, 0.05, 1.0))
+        except ValueError:
+            lam_ref = R * w_rated / float(np.asarray(par['wind_rated']).ravel()[0])
+            omega_init = float(np.clip(lam_ref * wind_speed_mps / R / w_rated, 0.05, 1.0))
+        P_mpt = float(self._mpt_interp(omega_init * w_rated))
+        return P_mpt * S_n / float(np.asarray(S_n_UIC).ravel()[0])
 
     def _load_MPT_table(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -340,14 +350,6 @@ class WindTurbine(DAEModel):
 
     def load_and_set_Cp(self, x, v):
         par = self.par
-        X = self.local_view(x)
-        
-        # omega_m is stored in per-unit (base = omega_m_rated in rad/s)
-        omega_m_rad_s = X['omega_m'] * par['omega_m_rated'] # pu speed * base speed -> rad/s
-        wind_speed = self.wind_speed(x, v) # m/s
-        # Handle array case: use np.where for element-wise conditional
-        tip_speed_ratio = np.where(wind_speed > 0, omega_m_rad_s * par['R'] / wind_speed, 0)
-        
         # Load Cp data if not already loaded
         if not hasattr(self, '_cp_data'):
             script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -403,7 +405,16 @@ class WindTurbine(DAEModel):
                 method='linear', bounds_error=False, fill_value=0.0
             )
             self._cp_data = True
-        
+        if x is None:
+            return 0.0
+
+        X = self.local_view(x)
+        # omega_m is stored in per-unit (base = omega_m_rated in rad/s)
+        omega_m_rad_s = X['omega_m'] * par['omega_m_rated'] # pu speed * base speed -> rad/s
+        wind_speed = self.wind_speed(x, v) # m/s
+        # Handle array case: use np.where for element-wise conditional
+        tip_speed_ratio = np.where(wind_speed > 0, omega_m_rad_s * par['R'] / wind_speed, 0)
+
         # Interpolate Cp value - pass as 1D array of length 2 for a single point
         # Convert to Python floats first to avoid any array issues
         tsr = float(tip_speed_ratio) if np.isscalar(tip_speed_ratio) else float(tip_speed_ratio.item())

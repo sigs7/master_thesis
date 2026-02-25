@@ -119,7 +119,7 @@ def main():
     participation_factors_list = []
 
     # Define the parameter values to sweep
-    parameter_values = np.linspace(1,10,10)  # Example parameter values
+    parameter_values = np.linspace(0.01,0.1,10)  # Example parameter values
 
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
@@ -128,7 +128,7 @@ def main():
 
     for param in parameter_values:
         # Set the parameter value in the power system model
-        ps.windturbine['WindTurbine'].par['D'] = param
+        ps.windturbine['WindTurbine'].par['Ki_pitch'] = param
         """ # Set inertia values (instance attributes, not struct fields)
         wt = ps.windturbine['WindTurbine']
         wt.H_m[:] = param

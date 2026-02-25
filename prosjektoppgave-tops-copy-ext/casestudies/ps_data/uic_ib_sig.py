@@ -12,7 +12,7 @@ def load():
 
         'lines': [
             ['name',  'from_bus', 'to_bus',   'length',   'S_n',  'V_n',  'unit', 'R',    'X',   'B'],
-            ['L1-2',        'B1',     'B2',          1,      1,      10,    'pu',   0,    0.1,     0],
+            ['L1-2',        'B1',     'B2',          1,      1,      1,    'pu',   0,    0.1,     0],
         ],
 
         'generators': {
@@ -25,7 +25,7 @@ def load():
         'vsc': {
             'UIC_sig': [
                 ['name', 'bus', 'S_n', 'V_n', 'v_ref', 'p_ref', 'q_ref',   'Ki',   'Kv',    'xf', 'perfect_tracking', 'T_filter'],
-                ['UIC1', 'B2',    1,      1,      1.0,     1.0,      0.5,    0.1,     0.0,    0.001,        1,          0.1   ] # enable perfect tracking: 1, else 0
+                ['UIC1', 'B2',    1,      1,      1.0,     0.5,      0.0,    0.1/3,     0.0,    0.001,        1,          0.1   ] # enable perfect tracking: 1, else 0
             ],
         }, 
 

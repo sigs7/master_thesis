@@ -106,7 +106,7 @@ class EigenvaluePlotter:
 
 
 def main():
-    import casestudies.ps_data.uic_ib_sig as model_data
+    import casestudies.ps_data.test_WT as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()

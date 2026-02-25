@@ -65,6 +65,7 @@ if __name__ == '__main__':
     P_aero_stored = []
     P_e_stored = []
     P_ref_stored = []
+    P_ref_instant_stored = []  # instantaneous MPT ref (before lag), for comparison
     v_bus = []
     omega_m_hist = []
     omega_e_hist = []
@@ -101,6 +102,7 @@ if __name__ == '__main__':
     P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)
     P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)
     P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)
+    P_ref_instant_stored.append(float(np.atleast_1d(wt_model._P_ref_instant(x0, v0)).flat[0]) * wt_s_n / sys_s_n)
     P_gen_local = gen_model.p_e(x0, v0)[0]
     Q_gen_local = gen_model.q_e(x0, v0)[0]
     P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)
@@ -165,6 +167,7 @@ if __name__ == '__main__':
         P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)  # WT local → system
         P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)  
         P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)  
+        P_ref_instant_stored.append(float(np.atleast_1d(wt_model._P_ref_instant(x, v)).flat[0]) * wt_s_n / sys_s_n)
         P_gen_local = gen_model.p_e(x, v)[0]  
         Q_gen_local = gen_model.q_e(x, v)[0]  
         P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)  
@@ -204,7 +207,7 @@ if __name__ == '__main__':
     t_stored = result[('Global', 't')]
     # All plot series have same length: index 0 = initial point (t0, x0, v0), then one per solver step
     n_pts = len(t_stored)
-    assert n_pts == len(Q_uic_bus_actual) == len(P_uic_bus_actual), "plot series length mismatch"
+    assert n_pts == len(Q_uic_bus_actual) == len(P_uic_bus_actual) == len(P_ref_instant_stored), "plot series length mismatch"
 
     # First figure: Wind Turbine.
     fig1, ax1 = plt.subplots(3, 1, sharex=True, figsize=(9, 8))
@@ -274,7 +277,8 @@ if __name__ == '__main__':
     # Power comparison (WT view): P_aero, P_e at UIC, and P_ref from WT
     ax3[0].plot(t_stored, P_aero_stored, label='P_aero (aerodynamic, WT)', color='orange', linewidth=1.5)
     ax3[0].plot(t_stored, P_e_stored, label='P_e (electrical at UIC)', color='#FF1493', linewidth=1.5)  # deeppink
-    ax3[0].plot(t_stored, P_ref_stored, label='P_ref, WT → UIC (command)', color='blue', linewidth=1.5, linestyle='--')
+    ax3[0].plot(t_stored, P_ref_instant_stored, label='P_ref instant (MPT, before lag)', color='green', linewidth=1, linestyle=':')
+    ax3[0].plot(t_stored, P_ref_stored, label='P_ref lagged, WT → UIC (command)', color='blue', linewidth=1.5, linestyle='--')
     ax3[0].set_ylabel('Power (p.u., sys S_n)')
     ax3[0].legend(loc='best')
     ax3[0].grid(True, alpha=0.3)
