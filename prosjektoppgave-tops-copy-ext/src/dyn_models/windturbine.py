@@ -124,7 +124,7 @@ class WindTurbine(DAEModel):
         e_omega = X['omega_m'][0] - omega_m_ref
         pitch_reference = 0.0
 
-        if e_omega < -0.05: # possible issue in shifting regions
+        if e_omega < -0.01: # possible issue in shifting regions
             # Region 2: MPPT (below rated) - reset integral
             dX_pitch_integral = 0.0
         else:  # Region 3: Power limiting (speed approaching rated)
@@ -178,7 +178,6 @@ class WindTurbine(DAEModel):
             #print('  omega_m_ref:', omega_m_ref)
 
         return
-    
 
     def init_from_connections(self, x_0, v_0, S):
         X = self.local_view(x_0)

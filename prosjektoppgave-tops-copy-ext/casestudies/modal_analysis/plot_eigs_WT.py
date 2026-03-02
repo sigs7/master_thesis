@@ -25,8 +25,22 @@ if __name__ == '__main__':
     ps_lin.linearize()
     ps_lin.eigenvalue_decomposition()
 
-    # Plot eigenvalues
-    dps_plt.plot_eigs(ps_lin.eigs)
+    # Plot eigenvalues with freq and damping always visible, plus axis labels
+    fig, ax = plt.subplots(1)
+    eigs = ps_lin.eigs
+    ax.scatter(eigs.real, eigs.imag, color='blue')
+    ax.axvline(0, color='k', linewidth=0.5)
+    ax.axhline(0, color='k', linewidth=0.5)
+    ax.grid(True)
+    ax.set_xlabel('Real part (1/s)')
+    ax.set_ylabel('Imaginary part (rad/s)')
+    for lam in eigs:
+        freq_hz = lam.imag / (2 * np.pi)
+        mag = np.sqrt(lam.real**2 + lam.imag**2)
+        damp_pct = -100 * lam.real / mag if mag > 0 else 0
+        ax.annotate(f'{freq_hz:.2f} Hz\n{damp_pct:.1f}%', (lam.real, lam.imag),
+                    xytext=(5, 5), textcoords='offset points', fontsize=8,
+                    bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.7))
     plt.show()
     print(' ')
     print('state description: ')
