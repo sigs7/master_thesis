@@ -1,0 +1,43 @@
+Entering fmi2Instantiate 
+Instantiating
+Redirecting cout here
+Redirecting cerr here
+Entering CosimFMU() 
+CosimFMU(): instance name: instance1, location: file:///c:/git/master_thesis/prosjektoppgave-tops-copy-ext/openfast_fmu/resources
+CosimFMU(): Current working directory is c:\git\master_thesis\prosjektoppgave-tops-copy-ext
+CosimFMU(): Read directory c:\git\master_thesis\prosjektoppgave-tops-copy-ext\OpenFAST\test1002 from file c:/git/master_thesis/prosjektoppgave-tops-copy-ext/openfast_fmu/resources/wd.txt
+CosimFMU(): Changed working directory to c:\git\master_thesis\prosjektoppgave-tops-copy-ext\OpenFAST\test1002
+Logger: Opening log file 
+CosimFMU(): Initialised logger
+CosimFMU(): Fortran cosim object initialised
+Entering VariableRegistry.
+VariableRegistry: Parsing model description: c:/git/master_thesis/prosjektoppgave-tops-copy-ext/openfast_fmu/resources/../modelDescription.xml.
+VariableRegistry: Model description parsed.
+VariableRegistry: Parsing variable testNr, value reference: 0
+VariableRegistry: Parsing variable timeStart, value reference: 1
+VariableRegistry: Parsing variable Mode, value reference: 2
+VariableRegistry: Parsing variable GenSpdOrTrq, value reference: 3
+VariableRegistry: Parsing variable GenPwr, value reference: 4
+VariableRegistry: Parsing variable ElecPwrCom, value reference: 5
+VariableRegistry: Parsing variable Time, value reference: 6
+VariableRegistry: Parsing variable HSShftTq, value reference: 7
+VariableRegistry: Parsing variable GenTq, value reference: 8
+VariableRegistry: Parsing variable Wind1VelX, value reference: 9
+VariableRegistry: Parsing variable RtVAvgxh, value reference: 10
+VariableRegistry: Parsing variable BldPitch1, value reference: 11
+VariableRegistry: Parsing variable NacYaw, value reference: 12
+VariableRegistry: Parsing variable RefGenSpd, value reference: 13
+VariableRegistry: Parsing variable GenSpeed, value reference: 14
+VariableRegistry: Parsing variable RotSpeed, value reference: 15
+VariableRegistry: Parsing variable LSSGagPxa, value reference: 16
+VariableRegistry: Parsing variable Azimuth, value reference: 17
+VariableRegistry: Parsing variable GenAccel, value reference: 18
+VariableRegistry: Parsing variable YawBrTAxp, value reference: 19
+VariableRegistry: Parsing variable YawBrTAyp, value reference: 20
+CosimFMU(): VariableRegistry initialised
+Done instantiating
+Entering SetupExperiment
+Entering EnterInitializationMode
+Entering ExitInitializationMode
+Entering fmi2DoStep for step nr 0
+Entering CosimObject::doStep for step nr 0

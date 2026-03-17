@@ -3,7 +3,6 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator, interp1d
 from scipy.optimize import brentq
 import os
-import src.utility_functions as dps_uf
 
 class WindTurbine(DAEModel):
     """

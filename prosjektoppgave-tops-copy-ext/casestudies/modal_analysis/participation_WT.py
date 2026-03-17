@@ -115,6 +115,22 @@ def main():
     ps_lin.linearize()
     ps_lin.eigenvalue_decomposition()
 
+    # Print eigenvalues and top 3 participating states per mode
+    pfs = ps_lin.lev.T * ps_lin.rev
+    pfs_abs = np.abs(pfs) / np.max(np.abs(pfs), axis=0)
+    eigs = ps_lin.eigs
+
+    print("\nModes with eigenvalues and top 3 participating states:\n")
+    for i in range(len(eigs)):
+        lam = eigs[i]
+        eig_str = f"{lam.real:.4f}" if lam.imag == 0 else f"{lam.real:.4f} {lam.imag:+.4f}j"
+        print(f"Mode {i}: λ = {eig_str}")
+
+        top3_idx = np.argsort(pfs_abs[:, i])[-3:][::-1]
+        for rank, idx in enumerate(top3_idx, 1):
+            print(f"  {rank}. {ps.state_desc[idx]}: {pfs_abs[idx, i]:.3f}")
+        print()
+
     plotter = EigenvaluePlotter(ps_lin)
     plotter.run()
 

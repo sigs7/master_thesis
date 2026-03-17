@@ -1,0 +1,134 @@
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Initialise()
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] CosimFMU() location URI: file:///C:/Users/larsi/AppData/Local/Temp/fmucktmpa10508/resources
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Parsing model description for variable registry: C:/Users/larsi/AppData/Local/Temp/fmucktmpa10508/resources/../modelDescription.xml
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: testNr, 0 -> 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: timeStart, 1 -> 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: Mode, 2 -> 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: GenSpdOrTrq, 3 -> 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: GenPwr, 4 -> 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Added real value to registry: ElecPwrCom, 5 -> 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Done parsing model description for variable registry
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] SetupExperiment
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Model Parameters
+name       : FAST FMU
+description: OpenFAST wind turbine model as FMU for use in power system analysis
+start_time : 0.000000
+end_time   : 99999.000000
+time_step  : 0.010000
+
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering initialization mode
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Exiting initialization mode
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Exiting initilization mode done
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(0) = 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(1) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(2) = 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(3) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(4) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(5) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(6) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(7) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(8) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(9) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(10) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(11) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(12) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(13) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(14) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(15) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(16) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(17) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(18) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(19) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(20) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering DoStep m_step=0, newStep=1, communicationStepSize=0.002000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] DoStep Determining internalSteps/waitingSteps at step=0, communicationStepSize=0.002000 dt=0.010000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] DoStep, calculated internalSteps=1, waitingSteps=4
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(0) = 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(1) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(2) = 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(3) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(4) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(5) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(6) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(7) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(8) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(9) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(10) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(11) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(12) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(13) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(14) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(15) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(16) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(17) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(18) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(19) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(20) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering DoStep m_step=0, newStep=1, communicationStepSize=0.002000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(0) = 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(1) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(2) = 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(3) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(4) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(5) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(6) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(7) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(8) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(9) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(10) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(11) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(12) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(13) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(14) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(15) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(16) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(17) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(18) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(19) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(20) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering DoStep m_step=0, newStep=1, communicationStepSize=0.002000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(0) = 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(1) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(2) = 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(3) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(4) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(5) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(6) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(7) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(8) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(9) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(10) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(11) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(12) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(13) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(14) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(15) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(16) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(17) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(18) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(19) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(20) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering DoStep m_step=0, newStep=1, communicationStepSize=0.002000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(0) = 1002.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(1) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(2) = 1.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(3) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(4) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(5) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(6) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(7) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(8) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(9) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(10) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(11) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(12) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(13) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(14) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(15) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(16) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(17) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(18) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(19) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] GetReal(20) = 0.000000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] Entering DoStep m_step=0, newStep=1, communicationStepSize=0.002000
+[Test FMI 2.0 CS][0][Test FMI 2.0 CS] DoStep: Step=0 m_time=0.000000

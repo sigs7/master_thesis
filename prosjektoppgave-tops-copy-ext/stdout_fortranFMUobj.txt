@@ -1,0 +1,52 @@
+
+ **************************************************************************************************
+ OpenFAST
+
+ Copyright (C) 2025 National Renewable Energy Laboratory
+ Copyright (C) 2025 Envision Energy USA LTD
+
+ This program is licensed under Apache License Version 2.0 and comes with ABSOLUTELY NO WARRANTY.
+ See the "LICENSE" file distributed with this software for details.
+ **************************************************************************************************
+
+ OpenFAST--128-NOTFOUND
+ Compile Info:
+  - Compiler: GCC version 8.1.0
+  - Architecture: 64 bit
+  - Precision: double
+  - OpenMP: No
+  - Date: Jan 31 2025
+  - Time: 08:53:05
+ Execution Info:
+  - Date: 03/17/2026
+  - Time: 14:41:42+0100
+
+ OpenFAST input file heading:
+     IEA 15 MW offshore reference model monopile configuration
+
+ Running ElastoDyn.
+ Running AeroDyn.
+ AD15 Nodal Outputs: Nodal output section of AeroDyn input file not found or improperly formatted.
+ Skipping nodal outputs.
+ Running InflowWind.
+ Running ServoDyn.
+ Running ServoDyn Interface for Bladed Controllers (using GNU Fortran for Windows).
+ Using legacy Bladed DLL interface.
+ initialising logging channels
+ calling Fill_CONTROL_vars
+ Fill_CONTROL_vars called
+ calling dll
+ dll called
+           2
+ EstWndSpd:L/T;RefGenSpd:A/T
+ logging channels initialised
+  Time: 0 of 361 seconds.
+                                                                                                   Time: 10 of 361 seconds.  Estimated final completion at 14:45:57.                                                                                                                                   Time: 20 of 361 seconds.  Estimated final completion at 14:45:51.                                                                                                                                   Time: 30 of 361 seconds.  Estimated final completion at 14:45:50.                                                                                                                                  
+  Total Real Time:       21.031 seconds
+  Total CPU Time:        20.547 seconds
+  Simulation CPU Time:   18.875 seconds
+  Simulated Time:        30 seconds
+  Time Ratio (Sim/CPU):  1.5894
+
+  OpenFAST completed.
+
