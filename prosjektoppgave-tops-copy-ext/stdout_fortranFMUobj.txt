@@ -1,52 +1,0 @@
-
- **************************************************************************************************
- OpenFAST
-
- Copyright (C) 2025 National Renewable Energy Laboratory
- Copyright (C) 2025 Envision Energy USA LTD
-
- This program is licensed under Apache License Version 2.0 and comes with ABSOLUTELY NO WARRANTY.
- See the "LICENSE" file distributed with this software for details.
- **************************************************************************************************
-
- OpenFAST--128-NOTFOUND
- Compile Info:
-  - Compiler: GCC version 8.1.0
-  - Architecture: 64 bit
-  - Precision: double
-  - OpenMP: No
-  - Date: Jan 31 2025
-  - Time: 08:53:05
- Execution Info:
-  - Date: 03/18/2026
-  - Time: 16:50:50+0100
-
- OpenFAST input file heading:
-     IEA 15 MW offshore reference model monopile configuration
-
- Running ElastoDyn.
- Running AeroDyn.
- AD15 Nodal Outputs: Nodal output section of AeroDyn input file not found or improperly formatted.
- Skipping nodal outputs.
- Running InflowWind.
- Running ServoDyn.
- Running ServoDyn Interface for Bladed Controllers (using GNU Fortran for Windows).
- Using legacy Bladed DLL interface.
- initialising logging channels
- calling Fill_CONTROL_vars
- Fill_CONTROL_vars called
- calling dll
- dll called
-           2
- EstWndSpd:L/T;RefGenSpd:A/T
- logging channels initialised
-  Time: 0 of 361 seconds.
-                                                                                                   Time: 10 of 361 seconds.  Estimated final completion at 16:56:20.                                                                                                                                   Time: 20 of 361 seconds.  Estimated final completion at 16:56:43.                                                                                                                                   Time: 30 of 361 seconds.  Estimated final completion at 17:01:06.                                                                                                                                   Time: 40 of 361 seconds.  Estimated final completion at 16:59:46.                                                                                                                                   Time: 50 of 361 seconds.  Estimated final completion at 16:58:51.                                                                                                                                   Time: 60 of 361 seconds.  Estimated final completion at 16:59:49.                                                                                                                                   Time: 70 of 361 seconds.  Estimated final completion at 16:56:57.                                                                                                                                   Time: 80 of 361 seconds.  Estimated final completion at 16:57:08.                                                                                                                                   Time: 90 of 361 seconds.  Estimated final completion at 16:57:10.                                                                                                                                   Time: 100 of 361 seconds.  Estimated final completion at 16:57:25.                                                                                                                                  Time: 110 of 361 seconds.  Estimated final completion at 16:57:06.                                                                                                                                  Time: 120 of 361 seconds.  Estimated final completion at 16:57:04.                                                                                                                                 
-  Total Real Time:       2.3344 minutes
-  Total CPU Time:        2.1766 minutes
-  Simulation CPU Time:   2.1234 minutes
-  Simulated Time:        2 minutes
-  Time Ratio (Sim/CPU):  0.94187
-
-  OpenFAST completed.
-

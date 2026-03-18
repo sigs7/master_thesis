@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription
+    modelName="FAST FMU"
+    description="OpenFAST wind turbine model as FMU for use in power system analysis"
+    guid="4e2f9dd0-343d-4d78-b7d9-031d289f3eca"
+    fmiVersion="2.0"
+    numberOfEventIndicators="0"
+    generationDateAndTime="2025-01-31T11:38:32">
+    <CoSimulation
+        modelIdentifier="fast_fmi"
+        canHandleVariableCommunicationStepSize="false">
+    </CoSimulation>
+    <LogCategories>
+        <Category name="logAll"/>
+        <Category name="logError"/>
+        <Category name="logFmiCall"/>
+        <Category name="logEvent"/>
+    </LogCategories>
+    <ModelVariables>
+        <ScalarVariable name="testNr" variability="fixed" causality="parameter" initial="exact" valueReference="0"
+                description="Test number">
+            <Real start="1002" unit="-" />
+        </ScalarVariable>
+        <ScalarVariable name="timeStart" variability="fixed" causality="parameter" initial="exact" valueReference="1"
+                description="Time elapsed before OpenFAST can start">
+            <Real start="0" unit="s" />
+        </ScalarVariable>
+        <ScalarVariable name="Mode" variability="fixed" causality="parameter" initial="exact" valueReference="2"
+                description="One- or two-way coupling">
+            <Real start="1" unit="-" />
+        </ScalarVariable>
+        <ScalarVariable name="GenSpdOrTrq" variability="continuous" causality="input" valueReference="3"
+                description="Generator speed or torque">
+            <Real start="0" unit="rpm/kNm" />
+        </ScalarVariable>
+        <ScalarVariable name="GenPwr" variability="continuous" causality="input" valueReference="4"
+                description="Measured electrical power">
+            <Real start="0" unit="kW" />
+        </ScalarVariable>
+        <ScalarVariable name="ElecPwrCom" variability="continuous" causality="input" valueReference="5"
+                description="Demanded electrical power">
+            <Real start="0" unit="kW" />
+        </ScalarVariable>
+        <ScalarVariable name="Time" variability="continuous" causality="output" valueReference="6"
+                description="OpenFAST simulation time">
+            <Real unit="s" />
+        </ScalarVariable>
+        <ScalarVariable name="HSShftTq" variability="continuous" causality="output" valueReference="7"
+                description="High-speed shaft mechanical torque">
+            <Real unit="kN-m" />
+        </ScalarVariable>
+        <ScalarVariable name="GenTq" variability="continuous" causality="output" valueReference="8"
+                description="Demanded generator torque">
+            <Real unit="kN-m" />
+        </ScalarVariable>
+        <ScalarVariable name="Wind1VelX" variability="continuous" causality="output" valueReference="9"
+                description="Hub wind velocity">
+            <Real unit="m/s" />
+        </ScalarVariable>
+        <ScalarVariable name="RtVAvgxh" variability="continuous" causality="output" valueReference="10"
+                description="Rotor-averaged wind velocity">
+            <Real unit="m/s" />
+        </ScalarVariable>
+        <ScalarVariable name="BldPitch1" variability="continuous" causality="output" valueReference="11"
+                description="Blade 1 pitch angle">
+            <Real unit="deg" />
+        </ScalarVariable>
+        <ScalarVariable name="NacYaw" variability="continuous" causality="output" valueReference="12"
+                description="Nacelle yaw angle wrt tower top">
+            <Real unit="deg" />
+        </ScalarVariable>
+        <ScalarVariable name="RefGenSpd" variability="continuous" causality="output" valueReference="13"
+                description="Reference generator speed">
+            <Real unit="rpm" />
+        </ScalarVariable>
+        <ScalarVariable name="GenSpeed" variability="continuous" causality="output" valueReference="14"
+                description="Generator speed">
+            <Real unit="rpm" />
+        </ScalarVariable>
+        <ScalarVariable name="RotSpeed" variability="continuous" causality="output" valueReference="15"
+                description="Rotor speed">
+            <Real unit="rpm" />
+        </ScalarVariable>
+        <ScalarVariable name="LSSGagPxa" variability="continuous" causality="output" valueReference="16"
+                description="Azimuth angle of low-speed shaft, gearbox side">
+            <Real unit="deg" />
+        </ScalarVariable>
+        <ScalarVariable name="Azimuth" variability="continuous" causality="output" valueReference="17"
+                description="Azimuth angle of low-speed shaft, rotor side">
+            <Real unit="deg" />
+        </ScalarVariable>
+        <ScalarVariable name="GenAccel" variability="continuous" causality="output" valueReference="18"
+                description="Generator acceleration">
+            <Real unit="deg/s^" />
+        </ScalarVariable>
+        <ScalarVariable name="YawBrTAxp" variability="continuous" causality="output" valueReference="19"
+                description="Tower-top fore-aft acceleration">
+            <Real unit="m/s^2" />
+        </ScalarVariable>
+        <ScalarVariable name="YawBrTAyp" variability="continuous" causality="output" valueReference="20"
+                description="Tower-top side-to-side acceleration">
+            <Real unit="m/s^2" />
+        </ScalarVariable>
+    </ModelVariables>
+    <ModelStructure>
+    </ModelStructure>
+</fmiModelDescription>

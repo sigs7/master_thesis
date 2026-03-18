@@ -9,7 +9,7 @@ This repository contains a TOPS-based power system simulator with two ways to mo
 
 ## Setup
 
-1. **Clone the repository** and `cd` into the project root (`prosjektoppgave-tops-copy-ext`).
+1. **Clone the repository** and `cd` into the project root.
 
 2. **Install dependencies:**
    ```bash
@@ -23,7 +23,6 @@ This repository contains a TOPS-based power system simulator with two ways to mo
 Uses the simplified `WindTurbine` model. No FMU required. Uses `wind_data/` (MPT, Cp tables, wind `.hh` file).
 
 ```bash
-cd prosjektoppgave-tops-copy-ext
 python casestudies/dyn_sim/uic_sim.py
 ```
 
@@ -31,18 +30,20 @@ python casestudies/dyn_sim/uic_sim.py
 
 Uses the OpenFAST FMU for full turbine dynamics. Requires `fast.fmu` in the project root and `OpenFAST/test1002` (IEA 15 MW).
 
-1. Place `fast.fmu` in `prosjektoppgave-tops-copy-ext/`.
+1. Place `fast.fmu` in the project root.
 2. Run:
    ```bash
-   cd prosjektoppgave-tops-copy-ext
    python casestudies/dyn_sim/test_WT_FMU_sim.py
    ```
 
    Results are written to `test_WT_FMU_sim_results.csv` in the project root.
 
-## Project structure
+## TOPS
 
-- `prosjektoppgave-tops-copy-ext/` – TOPS power system simulator
-- `prosjektoppgave-tops-copy-ext/src/dyn_models/windturbine.py` – internal wind turbine model
-- `prosjektoppgave-tops-copy-ext/wind_data/` – MPT, Cp tables, wind files (for internal model)
-- `prosjektoppgave-tops-copy-ext/README.md` – TOPS documentation
+This project builds on **TOPS** (Tiny Open Power System Simulator). For use in the course TET4180 at NTNU. Huge thanks to hallvard-h for this lightweight simulation tool.
+
+Features: Newton-Raphson power flow, dynamic time domain simulation (RMS/phasor), linearization, eigenvalue analysis/modal analysis.
+
+**Citing:** If you use this code for your research, please cite [this paper](https://arxiv.org/abs/2101.02937).
+
+**Contact:** [Hallvar Haugdal](mailto:hallvhau@gmail.com)
