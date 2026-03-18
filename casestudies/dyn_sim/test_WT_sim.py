@@ -15,7 +15,6 @@ import src.solvers as dps_sol
 import importlib
 importlib.reload(dps)
 
-
 if __name__ == '__main__':
 
     # region Model loading and initialisation

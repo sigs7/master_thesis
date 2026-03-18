@@ -23,7 +23,7 @@ This repository contains a TOPS-based power system simulator with two ways to mo
 Uses the simplified `WindTurbine` model. No FMU required. Uses `wind_data/` (MPT, Cp tables).
 
 ```bash
-python casestudies/dyn_sim/uic_sim.py
+python casestudies/dyn_sim/test_WT_sim.py
 ```
 
 ### FMU co-simulation (OpenFAST)
