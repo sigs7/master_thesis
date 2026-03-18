@@ -4,7 +4,7 @@ This repository contains a TOPS-based power system simulator with two ways to mo
 
 | Type | Description | Use case |
 |------|-------------|----------|
-| **Internal model** | Built-in `WindTurbine` (`src/dyn_models/windturbine.py`) – simplified drivetrain, MPT, Cp tables, wind file | Fast runs, no FMU, no OpenFAST |
+| **Internal model** | Built-in `WindTurbine` (`src/dyn_models/windturbine.py`) – simplified drivetrain, MPT, Cp tables | Fast runs, no FMU, no OpenFAST |
 | **FMU co-simulation** | OpenFAST FMU – full aeroelastic turbine model | High-fidelity turbine dynamics |
 
 ## Setup
@@ -20,7 +20,7 @@ This repository contains a TOPS-based power system simulator with two ways to mo
 
 ### Internal wind turbine model
 
-Uses the simplified `WindTurbine` model. No FMU required. Uses `wind_data/` (MPT, Cp tables, wind `.hh` file).
+Uses the simplified `WindTurbine` model. No FMU required. Uses `wind_data/` (MPT, Cp tables).
 
 ```bash
 python casestudies/dyn_sim/uic_sim.py

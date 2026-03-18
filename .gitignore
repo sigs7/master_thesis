@@ -170,6 +170,7 @@ fmu_log.txt
 mainInput.out
 mainInput.outb
 mainInput.*.sum
+mainInput*.txt
 fort.20
 
 # Simulink cache / autosave
