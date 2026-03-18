@@ -162,3 +162,19 @@ cython_debug/
 # Generated figures and testing outputs
 testing/
 casestudies/Notebooks/Figures/
+
+# OpenFAST / FMU generated outputs
+stdout_cppwrapper.txt
+stdout_fortranFMUobj.txt
+fmu_log.txt
+mainInput.out
+mainInput.outb
+mainInput.*.sum
+fort.20
+
+# Simulink cache / autosave
+*.slxc
+*.autosave
+
+# Optional: uncomment to ignore simulation results
+# test_WT_FMU_sim_results.csv

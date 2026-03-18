@@ -18,8 +18,8 @@
   - Date: Jan 31 2025
   - Time: 08:53:05
  Execution Info:
-  - Date: 03/17/2026
-  - Time: 14:41:42+0100
+  - Date: 03/18/2026
+  - Time: 16:50:50+0100
 
  OpenFAST input file heading:
      IEA 15 MW offshore reference model monopile configuration
@@ -41,12 +41,12 @@
  EstWndSpd:L/T;RefGenSpd:A/T
  logging channels initialised
   Time: 0 of 361 seconds.
-                                                                                                   Time: 10 of 361 seconds.  Estimated final completion at 14:45:57.                                                                                                                                   Time: 20 of 361 seconds.  Estimated final completion at 14:45:51.                                                                                                                                   Time: 30 of 361 seconds.  Estimated final completion at 14:45:50.                                                                                                                                  
-  Total Real Time:       21.031 seconds
-  Total CPU Time:        20.547 seconds
-  Simulation CPU Time:   18.875 seconds
-  Simulated Time:        30 seconds
-  Time Ratio (Sim/CPU):  1.5894
+                                                                                                   Time: 10 of 361 seconds.  Estimated final completion at 16:56:20.                                                                                                                                   Time: 20 of 361 seconds.  Estimated final completion at 16:56:43.                                                                                                                                   Time: 30 of 361 seconds.  Estimated final completion at 17:01:06.                                                                                                                                   Time: 40 of 361 seconds.  Estimated final completion at 16:59:46.                                                                                                                                   Time: 50 of 361 seconds.  Estimated final completion at 16:58:51.                                                                                                                                   Time: 60 of 361 seconds.  Estimated final completion at 16:59:49.                                                                                                                                   Time: 70 of 361 seconds.  Estimated final completion at 16:56:57.                                                                                                                                   Time: 80 of 361 seconds.  Estimated final completion at 16:57:08.                                                                                                                                   Time: 90 of 361 seconds.  Estimated final completion at 16:57:10.                                                                                                                                   Time: 100 of 361 seconds.  Estimated final completion at 16:57:25.                                                                                                                                  Time: 110 of 361 seconds.  Estimated final completion at 16:57:06.                                                                                                                                  Time: 120 of 361 seconds.  Estimated final completion at 16:57:04.                                                                                                                                 
+  Total Real Time:       2.3344 minutes
+  Total CPU Time:        2.1766 minutes
+  Simulation CPU Time:   2.1234 minutes
+  Simulated Time:        2 minutes
+  Time Ratio (Sim/CPU):  0.94187
 
   OpenFAST completed.
 

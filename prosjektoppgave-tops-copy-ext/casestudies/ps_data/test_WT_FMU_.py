@@ -44,8 +44,10 @@ def load():
 
         'FMUtoUIC': {
             'FMUtoUIC': [
-                ['name',      'FMU_path',      'UIC',   'fmu_filename',   'control_mode'],
-                ['FMUtoUIC1', fmu_path,        'UIC1',  'fast.fmu',        3],
+                ['name',      'FMU_path',      'UIC',   'fmu_filename',   'control_mode', 'wd_path', 'openfast_test_dir'],
+                ['FMUtoUIC1', fmu_path,        'UIC1',  'fast.fmu',        3,
+                 os.path.join(project_root, 'openfast_fmu', 'resources', 'wd.txt'),
+                 os.path.join(project_root, 'OpenFAST', 'test1002')]
             ],
         },
     }

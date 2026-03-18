@@ -31,12 +31,12 @@ class FMUtoUIC(DAEModel):
 
         unzipdir = extract(fmu_filename)
 
-        wd_file_path = r'C:\git\master_thesis\prosjektoppgave-tops-copy-ext\openfast_fmu\resources\wd.txt'
-        new_directory = r'C:\git\master_thesis\prosjektoppgave-tops-copy-ext\src'
+        wd_file_path = str(np.atleast_1d(par['wd_path']).ravel()[0])
+        new_directory = str(np.atleast_1d(par['openfast_test_dir']).ravel()[0])
 
-        if os.path.exists(os.path.dirname(wd_file_path)):
-            with open(wd_file_path, 'w') as f:
-                f.write(new_directory)
+        os.makedirs(os.path.dirname(wd_file_path), exist_ok=True)
+        with open(wd_file_path, 'w') as f:
+            f.write(new_directory)
 
         fmu = FMU2Slave(guid=model_description.guid,
                         unzipDirectory=unzipdir,
@@ -102,9 +102,25 @@ class FMUtoUIC(DAEModel):
     def state_derivatives(self, dx, x, v):
         return
 
+    # FMU output names from modelDescription.xml (causality="output")
+    FMU_OUTPUT_NAMES = [
+        'Time', 'HSShftTq', 'GenTq', 'Wind1VelX', 'RtVAvgxh', 'BldPitch1',
+        'NacYaw', 'RefGenSpd', 'GenSpeed', 'RotSpeed', 'LSSGagPxa', 'Azimuth',
+        'GenAccel', 'YawBrTAxp', 'YawBrTAyp',
+    ]
+
     def get_fmu_outputs(self):
         # return (GenTq, GenSpeed) for current FMU time. Use for logging/plots.
         return self.fmu.getReal([self.vrs['GenTq'], self.vrs['GenSpeed']])
+
+    def get_all_fmu_outputs(self):
+        """Return dict of all FMU outputs (from modelDescription.xml)."""
+        names = [n for n in self.FMU_OUTPUT_NAMES if n in self.vrs]
+        if not names:
+            return {}
+        vrefs = [self.vrs[n] for n in names]
+        vals = self.fmu.getReal(vrefs)
+        return dict(zip(names, vals))
 
     def P_ref(self, x, v):
         # Read OpenFAST outputs (read-only)

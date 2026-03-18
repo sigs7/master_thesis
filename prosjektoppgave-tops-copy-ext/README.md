@@ -1,3 +1,21 @@
+# Setup (Wind turbine FMU simulation)
+
+1. **Clone the repository** and `cd` into the project root (`prosjektoppgave-tops-copy-ext`).
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Place `fast.fmu`** in the project root. The OpenFAST FMU must be built separately and placed here.
+
+4. **Run the simulation** from the project root:
+   ```bash
+   python casestudies/dyn_sim/test_WT_FMU_sim.py
+   ```
+
+   The script sets the working directory to the project root automatically. The FMU reads OpenFAST inputs from `OpenFAST/test1002` (IEA 15 MW turbine). Results are written to `test_WT_FMU_sim_results.csv` in the project root.
+
 # TOPS (**T**iny **O**pen **P**ower System **S**imulator)
 
 For use in the course TET4180 at NTNU. Huge thanks to hallvard-h for providing us with this lightweight simluation tool.
@@ -13,11 +31,12 @@ Some features:
 - Dynamic time domain simulation (RMS/phasor approximation)
 - Linearization, eigenvalue analysis/modal analysis
 
-# Citing
+
+# Citing (TOPS)
 If you use this code for your research, please cite [this paper](https://arxiv.org/abs/2101.02937).
 
-# Example notebooks
+# Example notebooks (TOPS)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/hallvar-h/TOPS/HEAD?filepath=examples%2Fnotebooks)
 
-# Contact
+# Contact (TOPS)
 [Hallvar Haugdal](mailto:hallvhau@gmail.com)
