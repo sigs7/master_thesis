@@ -133,10 +133,9 @@ class FMUtoUICdrivetrain(DAEModel):
         self._Te_pu_cmd = None
         self._gen_speed_rpm_meas = None
         self._gen_tq_kNm_meas = None
-        # Debug/logging: last value written to FMU input GenSpdOrTrq (rpm).
-        # Note: in the OpenFAST-FMU "Mode=3" coupling used here, this input is treated as
-        # generator speed feedback (see standalone test in casestudies/dyn_sim/test_fmu_standalone.py).
-        self._gen_spdortrq_rpm_set = None
+        # Debug/logging: last value written to FMU input GenSpdOrTrq (kN·m).
+        # This project uses GenSpdOrTrq as the generator torque command (DynaWind convention).
+        self._gen_spdortrq_kNm_set = None
         # Optional debug scaling of GenSpdOrTrq input to verify write-through.
         # Set env var FMU_GENSPDORTRQ_SCALE (e.g. "0.5" or "2.0") to apply scaling.
         try:
@@ -418,10 +417,14 @@ class FMUtoUICdrivetrain(DAEModel):
         eff = float(self._efficiency)
         Te_pu = Pe_pu / (eff * omega_e)
         self._Te_pu_cmd = Te_pu
-        # Feed generator speed (rpm) into OpenFAST-FMU.
-        gen_rpm_in = float(omega_e * float(self._omega_base_rpm)) * float(self._gen_spdortrq_scale)
-        self._gen_spdortrq_rpm_set = float(gen_rpm_in)
-        self.fmu.setReal([self.vrs['GenSpdOrTrq']], [float(gen_rpm_in)])
+        # Send generator torque command (kN·m) into OpenFAST-FMU.
+        # DynaWind uses: setReal(GenSpdOrTrq, [-pmsm.T_e()]) where T_e is generator torque.
+        # Here Te_pu is on the local torque base -> convert to kN·m and use negative sign
+        # to match the generator/convention used by the DTU Bladed-style controller.
+        Te_kNm_cmd = float(Te_pu) * float(self._T_base_Nm) / 1e3
+        Te_kNm_in = Te_kNm_cmd * float(self._gen_spdortrq_scale)
+        self._gen_spdortrq_kNm_set = float(Te_kNm_in)
+        self.fmu.setReal([self.vrs['GenSpdOrTrq']], [float(Te_kNm_in)/2.])
 
         # Demanded electrical power (kW) for controller.
         # Note: FMU variable is in kW (not W).

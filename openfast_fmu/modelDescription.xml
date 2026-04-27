@@ -29,7 +29,7 @@
                 description="One- or two-way coupling">
             <Real start="3" unit="-" />
         </ScalarVariable>
-        <ScalarVariable name="GenSpdOrTrq" variability="continuous" causality="inp  ut" valueReference="3"
+        <ScalarVariable name="GenSpdOrTrq" variability="continuous" causality="input" valueReference="3"
                 description="Generator speed or torque">
             <Real start="0" unit="rpm/kNm" />
         </ScalarVariable>

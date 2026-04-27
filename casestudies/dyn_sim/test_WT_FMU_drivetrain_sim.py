@@ -52,8 +52,8 @@ if __name__ == '__main__':
     t = 0.0
     result_dict = defaultdict(list)
     # Allow quick A/B interface tests without changing the file.
-    # Example: set FMU_T_END=20 to run 20 seconds.
-    t_end = float(os.getenv('FMU_T_END', '120.0'))
+    # Example: set FMU_T_END=20 to run 20 seconds.xx
+    t_end = float(os.getenv('FMU_T_END', '240.0'))
     dt = 0.01
     # Use dt=0.01 to match OpenFAST FMU (canHandleVariableCommunicationStepSize=false)
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0.0, x0, t_end, max_step=dt)
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     # Also store commanded electrical torque sent to FMU (from FMUtoUICdrivetrain)
     Te_cmd_pu_stored = []
     Te_cmd_kNm_stored = []
-    # Store the actual rpm value written to FMU input GenSpdOrTrq (debugging)
-    GenSpdOrTrq_set_rpm_stored = []
+    # Store the torque value written to FMU input GenSpdOrTrq (debugging, kN·m)
+    GenSpdOrTrq_set_kNm_stored = []
     # Store the effective omega_m measurement used by the wrapper (pu)
     omega_m_pu_meas_stored = []
 
@@ -115,12 +115,12 @@ if __name__ == '__main__':
     else:
         Te_cmd_pu_stored.append(np.nan)
         Te_cmd_kNm_stored.append(np.nan)
-    if fmu_mdl is not None and hasattr(fmu_mdl, '_gen_spdortrq_rpm_set'):
-        GenSpdOrTrq_set_rpm_stored.append(
-            float(fmu_mdl._gen_spdortrq_rpm_set) if fmu_mdl._gen_spdortrq_rpm_set is not None else np.nan
+    if fmu_mdl is not None and hasattr(fmu_mdl, '_gen_spdortrq_kNm_set'):
+        GenSpdOrTrq_set_kNm_stored.append(
+            float(fmu_mdl._gen_spdortrq_kNm_set) if fmu_mdl._gen_spdortrq_kNm_set is not None else np.nan
         )
     else:
-        GenSpdOrTrq_set_rpm_stored.append(np.nan)
+        GenSpdOrTrq_set_kNm_stored.append(np.nan)
 
     if fmu_mdl is not None and hasattr(fmu_mdl, '_omega_m_pu_meas'):
         omega_m_pu_meas_stored.append(
@@ -180,12 +180,12 @@ if __name__ == '__main__':
         else:
             Te_cmd_pu_stored.append(np.nan)
             Te_cmd_kNm_stored.append(np.nan)
-        if fmu_mdl is not None and hasattr(fmu_mdl, '_gen_spdortrq_rpm_set'):
-            GenSpdOrTrq_set_rpm_stored.append(
-                float(fmu_mdl._gen_spdortrq_rpm_set) if fmu_mdl._gen_spdortrq_rpm_set is not None else np.nan
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_gen_spdortrq_kNm_set'):
+            GenSpdOrTrq_set_kNm_stored.append(
+                float(fmu_mdl._gen_spdortrq_kNm_set) if fmu_mdl._gen_spdortrq_kNm_set is not None else np.nan
             )
         else:
-            GenSpdOrTrq_set_rpm_stored.append(np.nan)
+            GenSpdOrTrq_set_kNm_stored.append(np.nan)
 
         if fmu_mdl is not None and hasattr(fmu_mdl, '_omega_m_pu_meas'):
             omega_m_pu_meas_stored.append(
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     # Add torque command traces (same length as t_stored)
     out_df['Te_cmd_pu'] = np.asarray(Te_cmd_pu_stored, dtype=float)
     out_df['Te_cmd_kNm'] = np.asarray(Te_cmd_kNm_stored, dtype=float)
-    out_df['GenSpdOrTrq_set_rpm'] = np.asarray(GenSpdOrTrq_set_rpm_stored, dtype=float)
+    out_df['GenSpdOrTrq_set_kNm'] = np.asarray(GenSpdOrTrq_set_kNm_stored, dtype=float)
     out_df['omega_m_pu_meas'] = np.asarray(omega_m_pu_meas_stored, dtype=float)
 
     # Optional: implied commanded mechanical power based on FMU-reported GenSpeed (kW) and Te_cmd_kNm

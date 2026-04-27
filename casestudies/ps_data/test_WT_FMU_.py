@@ -3,8 +3,12 @@ import os
 
 def load():
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    # Be explicit: use the OpenFAST-built FMU (there may be other fast.fmu copies).
-    fmu_path = os.path.join(project_root, 'OpenFAST', 'fast.fmu')
+    # Pick the FMU that actually exists (prefer OpenFAST/fast.fmu, otherwise fall back).
+    fmu_candidates = [
+        os.path.join(project_root, "OpenFAST", "fast.fmu"),
+        os.path.join(project_root, "fast.fmu"),
+    ]
+    fmu_path = next((p for p in fmu_candidates if os.path.isfile(p)), fmu_candidates[0])
 
     return {
         'base_mva': 10,

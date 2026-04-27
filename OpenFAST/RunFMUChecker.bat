@@ -1,1 +1,0 @@
-.\FMUChecker-2.0.4-win64\FMUChecker-2.0.4-win64\fmuCheck.win64.exe -n 0 -h 0.01 -s 10.0 -l 6 -e FMUChecker_errors.txt -o FMUChecker_output.csv fast.fmu
