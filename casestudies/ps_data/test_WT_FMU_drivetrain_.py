@@ -49,8 +49,9 @@ def load():
                  'J_m', 'J_e', 'K', 'D', 'omega_m_rated', 'fmu_dt', 'ElecPwrCom_kW', 'efficiency'],
                 ['FMUtoUICdrivetrain1', 'UIC1', 15, 22, fmu_path, 'fast.fmu', 3,
                  os.path.join(project_root, 'openfast_fmu', 'resources', 'wd.txt'),
-                 # OpenFAST input deck location (repo root)
-                 os.path.join(project_root, 'test1002'),
+                 # Directory that CONTAINS the OpenFAST case folders (e.g. test1002/).
+                 # The FMU selects the case via the parameter testNr=1002.
+                 project_root,
                  352460500., 1836784., 69737644900./100., 35697187.234657425, 7.559987120819503, 0.01, 20000.0, 0.95756],
             ],
         },

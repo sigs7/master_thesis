@@ -250,7 +250,7 @@ class FMUtoUICdrivetrain(DAEModel):
         # Warm-start: OpenFAST-FMU outputs can stay at defaults at t=0 until the first doStep().
         # Push initial inputs and do one warm-up step 0->dt here. Then we skip the first doStep()
         # in step_fmu() to keep alignment with TOPS time steps.
-        try:
+        """ try:
             import time as _time
             t0 = _time.perf_counter()
             print(f"[FMUtoUICdrivetrain] warm-start begin (dt={float(self._fmu_dt):g}s)", flush=True)
@@ -293,7 +293,7 @@ class FMUtoUICdrivetrain(DAEModel):
                 self._gen_tq_kNm_meas = float(self.fmu.getReal([self.vrs['GenTq']])[0])
         except Exception:
             # If warm-start fails, keep existing init logic.
-            pass
+            pass """
 
         print(f"K: {K}, D: {self.par['D'][0]}, He: {self.H_e}, Hm: {self.H_m}")
 

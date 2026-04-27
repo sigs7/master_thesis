@@ -48,8 +48,9 @@ def load():
                 ['name',      'FMU_path',      'UIC',   'fmu_filename',   'control_mode', 'wd_path', 'openfast_test_dir'],
                 ['FMUtoUIC1', fmu_path,        'UIC1',  'fast.fmu',        3,
                  os.path.join(project_root, 'openfast_fmu', 'resources', 'wd.txt'),
-                 # OpenFAST input deck location (repo root)
-                 os.path.join(project_root, 'test1002')]
+                 # Directory that CONTAINS the OpenFAST case folders (e.g. test1002/).
+                 # The FMU selects the case via the parameter testNr=1002.
+                 project_root]
             ],
         },
     }
