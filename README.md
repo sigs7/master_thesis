@@ -28,9 +28,9 @@ python casestudies/dyn_sim/test_WT_sim.py
 
 ### FMU co-simulation (OpenFAST)
 
-Uses the OpenFAST FMU for full turbine dynamics. Requires `fast.fmu` in the project root and `OpenFAST/test1002` (IEA 15 MW).
+Uses the OpenFAST FMU for full turbine dynamics. Requires `OpenFAST/fast.fmu` and `OpenFAST/test1002` (IEA 15 MW).
 
-1. Place `fast.fmu` in the project root.
+1. Place `fast.fmu` at `OpenFAST/fast.fmu`.
 2. Run:
    ```bash
    python casestudies/dyn_sim/test_WT_FMU_sim.py

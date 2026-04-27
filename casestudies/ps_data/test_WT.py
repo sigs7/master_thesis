@@ -20,7 +20,7 @@ def load():
 
         'loads': [
             ['name',    'bus',  'P',    'Q',    'model'],
-            ['L1',      'B3',   15,    5,    'Z'],
+            ['L1',      'B3',   20,    5,    'Z'],
         ],
 
         'generators': {
@@ -33,18 +33,17 @@ def load():
         'vsc': {
             'UIC_sig': [
                 ['name', 'bus', 'S_n', 'V_n', 'v_ref', 'p_ref', 'q_ref',   'Ki',   'Kv',    'xf', 'perfect_tracking', 'T_filter'],
-                ['UIC1', 'B2',    20,   22,      1.0,     0.5,      0.0,     0.1/3,     0.0,    0.1,        1,          0.1   ] # PQ bus for consistent q_ref=0 init
+                ['UIC1', 'B2',    20,   22,      1.0,     0.5,      0.0,     0.05,     0.0,    0.1,        1,          0.1   ] # PQ bus for consistent q_ref=0 init
             ],
         },
 
         'windturbine': {
-        'WindTurbine': [
-            ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',                   'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'gb_gen_efficiency','MPT_filename', 'Cp_filename'],
-            ['WT1', 'UIC1',  15,    22,       352460500.,             1836784.,         697376449.,           71186519.,       0.66,           0.2,           0.1,         90.0,           0.0,           2.0,              1.225,    120.97,       1.0,       7.53,      10.6,           0.95,           'MPT_Kopt2150.csv', 'Cp_Ct_Cq.IEA15MW.ROSCO.txt']
-            # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -, -] 
-                
-        ],
-    }
+            'WindTurbine': [
+                ['name', 'UIC', 'S_n', 'V_n',         'J_m',             'J_e',             'K',                   'D',        'Kp_pitch',     'Ki_pitch',   'T_pitch', 'max_pitch', 'min_pitch', 'max_pitch_rate',     'rho',     'R',      'P_rated', 'omega_m_rated', 'wind_rated', 'efficiency', 'MPT_filename', 'Cp_filename'],
+                ['WT1', 'UIC1',  15,    22,       352460500.,            1836784.,       69737644900./100.,      35697187.234657425,      0.66,           0.2,           0.1,         90.0,           0.0,      2.0,    1.225,    120.97,       1.0,       7.559987120819503,      10.6,           0.95756,           'MPT_Kopt2150.csv', 'Cp_Ct_Cq.IEA15MW.ROSCO.txt'],
+                # [-,     -,     MW,     kV,           kg m^2,           kg m^2,          Nm/rad,       Nms/rad,        rad/pu,         rad/pu,        s,            deg,         deg,         deg/s,          kg/m^3,     m,          pu,         RPM,        m/s, -, -, -]
+            ],
+        },
     }
 
 """ 'vsc': {

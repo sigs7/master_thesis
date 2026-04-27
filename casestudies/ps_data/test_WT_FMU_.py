@@ -3,7 +3,8 @@ import os
 
 def load():
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    fmu_path = os.path.join(project_root, 'fast.fmu')
+    # Be explicit: use the OpenFAST-built FMU (there may be other fast.fmu copies).
+    fmu_path = os.path.join(project_root, 'OpenFAST', 'fast.fmu')
 
     return {
         'base_mva': 10,
@@ -47,7 +48,8 @@ def load():
                 ['name',      'FMU_path',      'UIC',   'fmu_filename',   'control_mode', 'wd_path', 'openfast_test_dir'],
                 ['FMUtoUIC1', fmu_path,        'UIC1',  'fast.fmu',        3,
                  os.path.join(project_root, 'openfast_fmu', 'resources', 'wd.txt'),
-                 os.path.join(project_root, 'OpenFAST', 'test1002')]
+                 # OpenFAST input deck location (repo root)
+                 os.path.join(project_root, 'test1002')]
             ],
         },
     }

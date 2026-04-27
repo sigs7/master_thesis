@@ -31,12 +31,22 @@ class FMUtoUIC(DAEModel):
 
         unzipdir = extract(fmu_filename)
 
-        wd_file_path = str(np.atleast_1d(par['wd_path']).ravel()[0])
+        # IMPORTANT: OpenFAST-FMU reads wd.txt from inside the extracted FMU resources folder.
         new_directory = str(np.atleast_1d(par['openfast_test_dir']).ravel()[0])
-
-        os.makedirs(os.path.dirname(wd_file_path), exist_ok=True)
-        with open(wd_file_path, 'w') as f:
+        wd_file_path_in_fmu = os.path.join(unzipdir, 'resources', 'wd.txt')
+        os.makedirs(os.path.dirname(wd_file_path_in_fmu), exist_ok=True)
+        with open(wd_file_path_in_fmu, 'w') as f:
             f.write(new_directory)
+
+        # Optional: also write to the user-provided path for visibility/debugging.
+        try:
+            wd_file_path = str(np.atleast_1d(par['wd_path']).ravel()[0])
+            if wd_file_path:
+                os.makedirs(os.path.dirname(wd_file_path), exist_ok=True)
+                with open(wd_file_path, 'w') as f:
+                    f.write(new_directory)
+        except Exception:
+            pass
 
         fmu = FMU2Slave(guid=model_description.guid,
                         unzipDirectory=unzipdir,

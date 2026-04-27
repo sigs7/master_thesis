@@ -44,6 +44,8 @@ class UIC_sig(DAEModel):
         i_ref = np.conj(s_ref/vi) 
         i_max_pu = 1.9  # 20% overrating 
         i_ref_clamped = np.minimum(abs(i_ref), i_max_pu) * np.exp(1j*np.angle(i_ref))
+        if i_ref_clamped == 1.9:
+            print('NB! i_ref is clamped by 1.9 pu limit')
         i_a = self.i_a(x, v)
         theta = np.angle(vi, deg=False)
         

@@ -10,12 +10,14 @@ from collections import defaultdict
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 import src.dynamic as dps
 import src.solvers as dps_sol
 import importlib
 importlib.reload(dps)
 
 if __name__ == '__main__':
+    t_start_wall = time.perf_counter()
 
     # region Model loading and initialisation
     import casestudies.ps_data.test_WT as model_data
@@ -45,7 +47,7 @@ if __name__ == '__main__':
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 120 # Simulation time
+    t_end = 240 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
@@ -58,7 +60,6 @@ if __name__ == '__main__':
     print(f'state description: \n {ps.state_desc} \n')
     print(f'Initial values on all state variables (WT and UIC) : \n {x0} \n')
     
-
     # region Runtime variables
     # Additional plot variables
     P_aero_stored = []
@@ -101,7 +102,8 @@ if __name__ == '__main__':
     P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)
     P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)
     P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)
-    P_ref_instant_stored.append(float(np.atleast_1d(wt_model._P_ref_instant(x0, v0)).flat[0]) * wt_s_n / sys_s_n)
+    # No lag in P_ref anymore; treat "instant" as the same as P_ref (UIC pu) for comparison.
+    P_ref_instant_stored.append(float(np.atleast_1d(wt_model.P_ref(x0, v0)).flat[0]) * uic_s_n / sys_s_n)
     P_gen_local = gen_model.p_e(x0, v0)[0]
     Q_gen_local = gen_model.q_e(x0, v0)[0]
     P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)
@@ -132,6 +134,11 @@ if __name__ == '__main__':
     i_a_angle_hist.append(np.angle(i_a) * 180 / np.pi)
 
     # Simulation loop starts here!
+    # Short circuit parameters (modify reduced Ybus diagonal at the chosen bus)
+    t_sc = 120.0
+    t_sc_dur = 0.05
+    y_sc = 1e6
+    sc_flag = False
     while t < t_end:
         wt_model._sim_time = sol.t  # set before step so WT wind lookup uses correct time
         result = sol.step()
@@ -143,11 +150,11 @@ if __name__ == '__main__':
         sc_bus_idx = ps.vsc['UIC_sig'].bus_idx_red['terminal'][0]
         #sc_bus_idx = ps.vsc['UIC_sig_pq'].bus_idx_red['terminal'][0]
 
-        # Short circuit
-        """ if 1 <= t <= 1.05:
-            ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 1e5
+        # Short circuit (apply at UIC terminal bus)
+        if t_sc <= t <= (t_sc + t_sc_dur) and sc_flag:
+            ps.y_bus_red_mod[(sc_bus_idx,) * 2] = y_sc
         else:
-            ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 0 """
+            ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 0
 
         # region Store variables
         result_dict['Global', 't'].append(sol.t)
@@ -166,7 +173,7 @@ if __name__ == '__main__':
         P_aero_stored.append(P_aero_local * wt_s_n / sys_s_n)  # WT local → system
         P_e_stored.append(P_e_uic * uic_s_n / sys_s_n)  
         P_ref_stored.append(P_ref_uic * uic_s_n / sys_s_n)  
-        P_ref_instant_stored.append(float(np.atleast_1d(wt_model._P_ref_instant(x, v)).flat[0]) * wt_s_n / sys_s_n)
+        P_ref_instant_stored.append(float(np.atleast_1d(wt_model.P_ref(x, v)).flat[0]) * uic_s_n / sys_s_n)
         P_gen_local = gen_model.p_e(x, v)[0]  
         Q_gen_local = gen_model.q_e(x, v)[0]  
         P_gen_stored.append(P_gen_local * gen_s_n / sys_s_n)  
@@ -202,11 +209,73 @@ if __name__ == '__main__':
     # Convert dict to pandas dataframe
     result = pd.DataFrame(result_dict, columns=pd.MultiIndex.from_tuples(result_dict))
 
+    # Export CSV so results can be compared to the FMU drivetrain simulation.
+    t_stored = result[('Global', 't')]
+    # Speed base used for omega_*_pu in this simulation (WindTurbine internally uses omega_m_rated as base).
+    omega_base_rad_s = float(np.asarray(wt_model.par['omega_m_rated']).ravel()[0])
+    omega_base_rpm = omega_base_rad_s * 60.0 / (2.0 * np.pi) if np.isfinite(omega_base_rad_s) else np.nan
+    out_df = pd.DataFrame(
+        {
+            't': t_stored.to_numpy(dtype=float),
+            # Wind turbine (system-base pu where noted)
+            'omega_base_rpm': float(omega_base_rpm),
+            'omega_m_pu': np.asarray(omega_m_hist, dtype=float),
+            'omega_e_pu': np.asarray(omega_e_hist, dtype=float),
+            'pitch_deg': np.asarray(pitch_angle_hist, dtype=float),
+            'wind_speed_mps': np.asarray(wind_speed_hist, dtype=float),
+            'P_aero_sys_pu': np.asarray(P_aero_stored, dtype=float),
+            'P_e_sys_pu': np.asarray(P_e_stored, dtype=float),
+            'P_ref_sys_pu': np.asarray(P_ref_stored, dtype=float),
+            'P_ref_instant_sys_pu': np.asarray(P_ref_instant_stored, dtype=float),
+            # UIC terminal voltage magnitude (sys V base pu)
+            'v_bus_pu': np.asarray(v_bus, dtype=float),
+            # UIC bus-side power (sys base pu)
+            'P_uic_bus_actual_sys_pu': np.asarray(P_uic_bus_actual, dtype=float),
+            'Q_uic_bus_actual_sys_pu': np.asarray(Q_uic_bus_actual, dtype=float),
+            'P_uic_bus_ref_sys_pu': np.asarray(P_uic_bus_ref, dtype=float),
+            'Q_uic_bus_ref_sys_pu': np.asarray(Q_uic_bus_ref, dtype=float),
+            # Infinite bus power (sys base pu)
+            'P_inf_sys_pu': np.asarray(P_gen_stored, dtype=float),
+            'Q_inf_sys_pu': np.asarray(Q_gen_stored, dtype=float),
+            # UIC armature current (magnitude pu on UIC base, angle deg)
+            'i_a_mag_pu_uic': np.asarray(i_a_mag_hist, dtype=float),
+            'i_a_angle_deg': np.asarray(i_a_angle_hist, dtype=float),
+        }
+    )
+
+    out_path = os.path.join(project_root, 'casestudies', 'dyn_sim', 'test_WT_sim_results.csv')
+    out_df.to_csv(out_path, index=False)
+    print(f"\nResults saved to {out_path} ({len(out_df.columns)} columns)")
+
     # region Plotting
     t_stored = result[('Global', 't')]
     # All plot series have same length: index 0 = initial point (t0, x0, v0), then one per solver step
     n_pts = len(t_stored)
     assert n_pts == len(Q_uic_bus_actual) == len(P_uic_bus_actual) == len(P_ref_instant_stored), "plot series length mismatch"
+
+    # Helper: avoid confusing axis offset/scientific notation on near-constant traces
+    from matplotlib.ticker import ScalarFormatter
+    def _plain_y(ax):
+        fmt = ScalarFormatter(useOffset=False)
+        fmt.set_scientific(False)
+        ax.yaxis.set_major_formatter(fmt)
+
+    def _set_ylim_from_series(ax, *series, pad_frac=0.05, pad_abs=1e-3, floor0=False):
+        y = np.concatenate([np.asarray(s, dtype=float).ravel() for s in series if s is not None])
+        y = y[np.isfinite(y)]
+        if y.size == 0:
+            return
+        ymin = float(np.min(y))
+        ymax = float(np.max(y))
+        if ymax > ymin:
+            pad = pad_frac * (ymax - ymin)
+        else:
+            pad = pad_abs
+        lo = ymin - pad
+        hi = ymax + pad
+        if floor0:
+            lo = max(0.0, lo)
+        ax.set_ylim(lo, hi)
 
     # First figure: Wind Turbine.
     fig1, ax1 = plt.subplots(3, 1, sharex=True, figsize=(9, 8))
@@ -218,12 +287,18 @@ if __name__ == '__main__':
     ax1[0].set_ylabel('Speed (p.u., base ω_m_rated)')
     ax1[0].legend(loc='best')
     ax1[0].grid(True, alpha=0.3)
+    _plain_y(ax1[0])
+    # Use a fixed engineering range so tiny numerical drift is not visually amplified
+    ax1[0].set_ylim(0.95, 1.05)
 
     # Pitch angle
     ax1[1].plot(t_stored, pitch_angle_hist, label='Pitch angle', color='blue', linewidth=1.5)
     ax1[1].set_ylabel('Pitch angle (deg)')
     ax1[1].legend(loc='best')
     ax1[1].grid(True, alpha=0.3)
+    _plain_y(ax1[1])
+    # Keep pitch scale readable; steady-state values should not “zoom in”
+    ax1[1].set_ylim(0.0, 10.0)
 
     # Wind speed
     ax1[2].plot(t_stored, wind_speed_hist, label='Wind speed', color='#FF1493', linewidth=1.5)  # deeppink
@@ -231,6 +306,8 @@ if __name__ == '__main__':
     ax1[2].set_xlabel('Time (s)')
     ax1[2].legend(loc='best')
     ax1[2].grid(True, alpha=0.3)
+    _plain_y(ax1[2])
+    ax1[2].set_ylim(0.0, 25.0)
 
     # Second figure: UIC
     fig2, ax2 = plt.subplots(4, 1, sharex=True, figsize=(9, 8))
@@ -246,6 +323,8 @@ if __name__ == '__main__':
     ax2[0].set_ylabel('Voltage (p.u., sys V_n)')
     ax2[0].legend(loc='best')
     ax2[0].grid(True, alpha=0.3)
+    _plain_y(ax2[0])
+    ax2[0].set_ylim(0.95, 1.05)
 
     # Internal voltage components
     ax2[1].plot(t_stored, vi_x, label='v_i_x (real)', color='#FF1493', linewidth=1.5)  # deeppink
@@ -254,12 +333,17 @@ if __name__ == '__main__':
     ax2[1].legend(loc='best')
     ax2[1].grid(True, alpha=0.3)
     ax2[1].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
+    _plain_y(ax2[1])
+    # Components typically live near 0..1 in this case; avoid over-zooming
+    ax2[1].set_ylim(-0.1, 1.1)
 
     # Current magnitude
     ax2[2].plot(t_stored, i_a_mag_hist, label='|i_a| (armature current)', color='#FF1493', linewidth=1.5)  # deeppink
     ax2[2].set_ylabel('Current (p.u., UIC S_n)')
     ax2[2].legend(loc='best')
     ax2[2].grid(True, alpha=0.3)
+    _plain_y(ax2[2])
+    ax2[2].set_ylim(0.0, 1.5)
 
     # Current angle
     ax2[3].plot(t_stored, i_a_angle_hist, label='∠i_a (armature current angle)', color='blue', linewidth=1.5)
@@ -267,6 +351,8 @@ if __name__ == '__main__':
     ax2[3].set_xlabel('Time (s)')
     ax2[3].legend(loc='best')
     ax2[3].grid(True, alpha=0.3)
+    _plain_y(ax2[3])
+    ax2[3].set_ylim(-90.0, 90.0)
 
     # Third figure: Power
     # 0: WT powers, 1: UIC P at bus, 2: UIC Q at bus, 3: Infinite bus P/Q
@@ -276,11 +362,12 @@ if __name__ == '__main__':
     # Power comparison (WT view): P_aero, P_e at UIC, and P_ref from WT
     ax3[0].plot(t_stored, P_aero_stored, label='P_aero (aerodynamic, WT)', color='orange', linewidth=1.5)
     ax3[0].plot(t_stored, P_e_stored, label='P_e (electrical at UIC)', color='#FF1493', linewidth=1.5)  # deeppink
-    ax3[0].plot(t_stored, P_ref_instant_stored, label='P_ref instant (MPT, before lag)', color='green', linewidth=1, linestyle=':')
     ax3[0].plot(t_stored, P_ref_stored, label='P_ref lagged, WT → UIC (command)', color='blue', linewidth=1.5, linestyle='--')
     ax3[0].set_ylabel('Power (p.u., sys S_n)')
     ax3[0].legend(loc='best')
     ax3[0].grid(True, alpha=0.3)
+    _plain_y(ax3[0])
+    ax3[0].set_ylim(0.0, 2.0)
 
     # UIC bus-side active power: actual vs reference (including xf losses)
     ax3[1].plot(t_stored, P_uic_bus_actual, label='P_UIC actual at bus', color='#FF1493', linewidth=1.5)
@@ -288,6 +375,8 @@ if __name__ == '__main__':
     ax3[1].set_ylabel('P at bus (p.u., sys S_n)')
     ax3[1].legend(loc='best')
     ax3[1].grid(True, alpha=0.3)
+    _plain_y(ax3[1])
+    ax3[1].set_ylim(0.0, 2.0)
 
     # UIC bus-side reactive power: actual vs external reference (constant Q_ref)
     # External Q_ref is the case-data setpoint on UIC base, converted to system base
@@ -300,6 +389,8 @@ if __name__ == '__main__':
     ax3[2].set_ylabel('Q at bus (p.u., sys S_n)')
     ax3[2].legend(loc='best')
     ax3[2].grid(True, alpha=0.3)
+    _plain_y(ax3[2])
+    ax3[2].set_ylim(-1.0, 1.0)
 
     # Infinite bus power (P and Q in same subplot)
     ax3[3].plot(t_stored, P_gen_stored, label='P_inf (infinite bus)', color='blue', linewidth=1.5)
@@ -308,7 +399,26 @@ if __name__ == '__main__':
     ax3[3].set_xlabel('Time (s)')
     ax3[3].legend(loc='best')
     ax3[3].grid(True, alpha=0.3)
+    _plain_y(ax3[3])
+    ax3[3].set_ylim(-1.0, 1.0)
+
+    # Quick numeric “what happens around 70 s?” diagnostic
+    # (Helps separate real disturbances from formatting artifacts.)
+    try:
+        t_arr = t_stored.to_numpy(dtype=float)
+        p_bus = np.asarray(P_uic_bus_actual, dtype=float)
+        if t_arr.size == p_bus.size:
+            i70 = int(np.argmin(np.abs(t_arr - 70.0)))
+            w = max(1, int(2.0 / (t_arr[1] - t_arr[0]))) if t_arr.size > 1 else 1  # ~±2s window
+            lo = max(0, i70 - w)
+            hi = min(t_arr.size, i70 + w + 1)
+            seg = p_bus[lo:hi]
+            seg = seg[np.isfinite(seg)]
+
+    except Exception:
+        pass
 
     plt.tight_layout()
+    print(f"\nSimulation took {time.perf_counter() - t_start_wall:.2f} seconds.")
     plt.show(block=True)
     # endregion

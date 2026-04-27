@@ -1,4 +1,11 @@
+import os
+
+
 def load():
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Be explicit: use the OpenFAST-built FMU (there is also a fast.fmu at repo root).
+    fmu_path = os.path.join(project_root, 'OpenFAST', 'fast.fmu')
+
     return {
         'base_mva': 10,
         'f': 50,
@@ -19,7 +26,7 @@ def load():
 
         'loads': [
             ['name',    'bus',  'P',    'Q',    'model'],
-            ['L1',      'B3',   15,    5,    'Z'],
+            ['L1',      'B3',   20,    5,    'Z'],
         ],
 
         'generators': {
@@ -32,7 +39,20 @@ def load():
         'vsc': {
             'UIC_sig': [
                 ['name', 'bus', 'S_n', 'V_n', 'v_ref', 'p_ref', 'q_ref',   'Ki',   'Kv',    'xf', 'perfect_tracking', 'T_filter'],
-                ['UIC1', 'B2',    20,   22,      1.0,     0.5,      0.0,     0.1/2,     0.0,    0.1,        1,          0.1   ]  # same as test_WT, no WT
+                ['UIC1', 'B2',    20,   22,      1.0,     0.5,      0.0,     0.05,     0.0,    0.1,        1,          0.1   ] # PQ bus for consistent q_ref=0 init
+            ],
+        },
+
+        'FMUtoUICdrivetrain': {
+            'FMUtoUICdrivetrain': [
+                ['name', 'UIC', 'S_n', 'V_n', 'FMU_path', 'fmu_filename', 'control_mode', 'wd_path', 'openfast_test_dir',
+                 'J_m', 'J_e', 'K', 'D', 'omega_m_rated', 'fmu_dt', 'ElecPwrCom_kW', 'efficiency'],
+                ['FMUtoUICdrivetrain1', 'UIC1', 15, 22, fmu_path, 'fast.fmu', 3,
+                 os.path.join(project_root, 'openfast_fmu', 'resources', 'wd.txt'),
+                 # OpenFAST input deck location (repo root)
+                 os.path.join(project_root, 'test1002'),
+                 352460500., 1836784., 69737644900./100., 35697187.234657425, 7.559987120819503, 0.01, 20000.0, 0.95756],
             ],
         },
     }
+

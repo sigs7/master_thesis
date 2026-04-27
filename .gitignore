@@ -162,6 +162,11 @@ cython_debug/
 # Generated figures and testing outputs
 testing/
 casestudies/Notebooks/Figures/
+casestudies/dyn_sim/plots/
+casestudies/**/*.png
+casestudies/**/*.pdf
+casestudies/**/*results*.csv
+casestudies/**/*.csv
 
 # OpenFAST / FMU generated outputs
 stdout_cppwrapper.txt

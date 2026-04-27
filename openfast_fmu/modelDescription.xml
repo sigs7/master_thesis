@@ -19,7 +19,7 @@
     <ModelVariables>
         <ScalarVariable name="testNr" variability="fixed" causality="parameter" initial="exact" valueReference="0"
                 description="Test number">
-            <Real start="1003" unit="-" />
+            <Real start="1002" unit="-" />
         </ScalarVariable>
         <ScalarVariable name="timeStart" variability="fixed" causality="parameter" initial="exact" valueReference="1"
                 description="Time elapsed before OpenFAST can start">

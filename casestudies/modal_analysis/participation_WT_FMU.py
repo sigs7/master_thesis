@@ -14,15 +14,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.colors import LinearSegmentedColormap
 
-
-class EigenSweep:
-    def __init__(self, eigenvalues_list, participation_factors_list, state_desc, parameter_values):
-        self.eigenvalues_list = eigenvalues_list
-        self.participation_factors_list = participation_factors_list
-        self.state_desc = state_desc
-        self.parameter_values = parameter_values
+class EigenvaluePlotter:
+    def __init__(self, ps_lin):
+        self.ps_lin = ps_lin
+        self.ps = ps_lin.ps
 
         self.root = tk.Tk()
         self.root.title("Eigenvalue Plot")
@@ -43,7 +39,6 @@ class EigenSweep:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # Add Matplotlib toolbar for zoom/pan
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.root)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -53,30 +48,28 @@ class EigenSweep:
 
     def plot_eigenvalues(self, search_terms=None):
         self.ax.clear()
-        norm = plt.Normalize(min(self.parameter_values), max(self.parameter_values))
-        cmap = LinearSegmentedColormap.from_list('custom_cmap', ['blue', 'red'])
+        self.eigs = self.ps_lin.eigs
+        # pfs = self.ps_lin.lev * self.ps_lin.rev.T
+        pfs = self.ps_lin.lev.T * self.ps_lin.rev  # Transposed
+        self.pfs_abs = np.abs(pfs) / np.max(np.abs(pfs), axis=0)
 
-        for eigs, pfs_abs, param in zip(self.eigenvalues_list, self.participation_factors_list, self.parameter_values):
-            color = cmap(norm(param))
-            if search_terms:
-                bool_lists = []
-                for terms in search_terms:
-                    bool_list = [any(term in state for term in terms) for state in self.state_desc]
-                    bool_lists.append(bool_list)
+        if search_terms:
+            bool_lists = []
+            for terms in search_terms:
+                bool_list = [any(term in state for term in terms) for state in self.ps.state_desc]
+                bool_lists.append(bool_list)
 
-                combined_bool_list = np.logical_and.reduce(bool_lists)
-                state_indices = [i for i, flag in enumerate(combined_bool_list) if flag]
-                opacities = np.max(pfs_abs[state_indices, :], axis=0)
-            else:
-                opacities = np.ones(len(eigs))
+            combined_bool_list = np.logical_and.reduce(bool_lists)
+            state_indices = [i for i, flag in enumerate(combined_bool_list) if flag]
+            self.opacities = np.max(self.pfs_abs[state_indices, :], axis=0)
+        else:
+            self.opacities = np.ones(len(self.eigs))
 
-            self.ax.scatter(eigs.real, eigs.imag, color=color, alpha=opacities)
-
+        self.scatter = self.ax.scatter(self.eigs.real, self.eigs.imag, c='b', alpha=self.opacities)
         self.ax.set_xlabel('Real Part')
         self.ax.set_ylabel('Imaginary Part')
         self.ax.set_title('Eigenvalues with Participation Factors')
-        self.ax.grid(True, which='both', linestyle='--', alpha=0.3)
-
+        self.ax.grid(True)  # Add gridlines
         self.fig.tight_layout()
         self.fig.canvas.draw()
 
@@ -113,38 +106,33 @@ class EigenSweep:
 
 
 def main():
-    import casestudies.ps_data.uic_ib_sig as model_data
-
-    eigenvalues_list = []
-    participation_factors_list = []
-
-    # Define the parameter values to sweep
-    parameter_values = np.linspace(0.02,0.1,10)  # Example parameter values
-
+    import casestudies.ps_data.test_WT_FMU_drivetrain_ as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()
+
     ps_lin = dps_mdl.PowerSystemModelLinearization(ps)
+    ps_lin.linearize()
+    ps_lin.eigenvalue_decomposition()
 
-    for param in parameter_values:
-        # Set the parameter value in the power system model
-        ps.vsc['UIC_sig'].par['Ki'] = param
-        """ # Set inertia values (instance attributes, not struct fields)
-        wt = ps.windturbine['WindTurbine']
-        wt.H_m[:] = param
-        #wt.H_e[:] = param """
+    # Print eigenvalues and top 3 participating states per mode
+    pfs = ps_lin.lev.T * ps_lin.rev
+    pfs_abs = np.abs(pfs) / np.max(np.abs(pfs), axis=0)
+    eigs = ps_lin.eigs
 
-        # Linearize
-        ps_lin.linearize()
-        ps_lin.eigenvalue_decomposition()
+    print("\nModes with eigenvalues and top 3 participating states:\n")
+    for i in range(len(eigs)):
+        lam = eigs[i]
+        eig_str = f"{lam.real:.4f}" if lam.imag == 0 else f"{lam.real:.4f} {lam.imag:+.4f}j"
+        print(f"Mode {i}: λ = {eig_str}")
 
-        eigenvalues_list.append(ps_lin.eigs)
-        pfs_abs = np.abs(ps_lin.lev.T * ps_lin.rev) / np.max(np.abs(ps_lin.lev.T * ps_lin.rev), axis=0)
-        participation_factors_list.append(pfs_abs)
+        top3_idx = np.argsort(pfs_abs[:, i])[-3:][::-1]
+        for rank, idx in enumerate(top3_idx, 1):
+            print(f"  {rank}. {ps.state_desc[idx]}: {pfs_abs[idx, i]:.3f}")
+        print()
 
-    plotter = EigenSweep(eigenvalues_list, participation_factors_list, ps.state_desc, parameter_values)
+    plotter = EigenvaluePlotter(ps_lin)
     plotter.run()
-
 
 if __name__ == '__main__':
     main()
