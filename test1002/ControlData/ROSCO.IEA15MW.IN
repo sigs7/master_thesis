@@ -2,10 +2,10 @@
 !    - File written using ROSCO version 2.10.0 controller tuning logic on 09/08/25
 
 !------- SIMULATION CONTROL ------------------------------------------------------------
-1                   ! LoggingLevel		- 0: write no debug files, 1: write standard output .dbg-file, 2: LoggingLevel 1 + ROSCO LocalVars (.dbg2) 3: LoggingLevel 2 + complete avrSWAP-array (.dbg3)
+3                   ! LoggingLevel		- 0: write no debug files, 1: write standard output .dbg-file, 2: LoggingLevel 1 + ROSCO LocalVars (.dbg2) 3: LoggingLevel 2 + complete avrSWAP-array (.dbg3)
 0                   ! DT_Out    		  - Time step to output .dbg* files, or 0 to match sampling period of OpenFAST
 1                   ! Ext_Interface		- (0 - use standard bladed interface, 1 - Use the extened DLL interface introduced in OpenFAST 3.5.0.)
-0                   ! Echo		        - (0 - no Echo, 1 - Echo input data to <RootName>.echo)
+1                   ! Echo		        - (0 - no Echo, 1 - Echo input data to <RootName>.echo)
 
 !------- CONTROLLER FLAGS -------------------------------------------------
 2                   ! F_LPFType       - 1: first-order low-pass filter, 2: second-order low-pass filter, [rad/s] (currently filters generator speed and pitch control signals

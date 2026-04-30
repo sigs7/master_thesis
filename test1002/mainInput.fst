@@ -1,7 +1,7 @@
 ------- OpenFAST INPUT FILE -------------------------------------------
 IEA 15 MW offshore reference model monopile configuration
 ---------------------- SIMULATION CONTROL --------------------------------------
-False                  Echo        - Echo input data to <RootName>.ech (flag)
+True                  Echo        - Echo input data to <RootName>.ech (flag)
 "FATAL"                AbortLevel  - Error level when simulation should abort (string) {"WARNING", "SEVERE", "FATAL"}
 361.0                  TMax        - Total run time (s)
 0.01                   DT          - Recommended module time step (s)

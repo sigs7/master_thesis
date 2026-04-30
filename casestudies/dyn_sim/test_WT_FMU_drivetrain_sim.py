@@ -118,7 +118,8 @@ if __name__ == '__main__':
         te_pu = float(fmu_mdl._Te_pu_cmd) if fmu_mdl._Te_pu_cmd is not None else np.nan
         Te_cmd_pu_stored.append(te_pu)
         if hasattr(fmu_mdl, '_T_base_Nm') and np.isfinite(te_pu):
-            Te_cmd_kNm_stored.append(te_pu * float(fmu_mdl._T_base_Nm) / 1e3)
+            T_base_Nm = float(np.asarray(fmu_mdl._T_base_Nm).ravel()[0])
+            Te_cmd_kNm_stored.append(te_pu * T_base_Nm / 1e3)
         else:
             Te_cmd_kNm_stored.append(np.nan)
     else:
@@ -203,7 +204,8 @@ if __name__ == '__main__':
             te_pu = float(fmu_mdl._Te_pu_cmd) if fmu_mdl._Te_pu_cmd is not None else np.nan
             Te_cmd_pu_stored.append(te_pu)
             if hasattr(fmu_mdl, '_T_base_Nm') and np.isfinite(te_pu):
-                Te_cmd_kNm_stored.append(te_pu * float(fmu_mdl._T_base_Nm) / 1e3)
+                T_base_Nm = float(np.asarray(fmu_mdl._T_base_Nm).ravel()[0])
+                Te_cmd_kNm_stored.append(te_pu * T_base_Nm / 1e3)
             else:
                 Te_cmd_kNm_stored.append(np.nan)
         else:
@@ -533,7 +535,8 @@ if __name__ == '__main__':
 
         # Mechanical torque output from OpenFAST (HSShftTq in kN·m) -> pu on same base
         if hasattr(fmu_mdl, '_T_base_Nm') and fmu_mdl._T_base_Nm and 'HSShftTq' in df.columns:
-            Tmech_of_pu = (df['HSShftTq'].to_numpy(dtype=float) * 1e3) / float(fmu_mdl._T_base_Nm)
+            T_base_Nm = float(np.asarray(fmu_mdl._T_base_Nm).ravel()[0])
+            Tmech_of_pu = (df['HSShftTq'].to_numpy(dtype=float) * 1e3) / T_base_Nm
             axes2[1].plot(
                 t_stored,
                 Tmech_of_pu,

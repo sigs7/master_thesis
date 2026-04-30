@@ -28,15 +28,22 @@ python casestudies/dyn_sim/test_WT_sim.py
 
 ### FMU co-simulation (OpenFAST)
 
-Uses the OpenFAST FMU for full turbine dynamics. Requires `OpenFAST/fast.fmu` and `OpenFAST/test1002` (IEA 15 MW).
+Uses the OpenFAST FMU for full turbine dynamics (IEA 15 MW case `test1002`).
 
-1. Place `fast.fmu` at `OpenFAST/fast.fmu`.
-2. Run:
+1. Place the FMU at either:
+   - `OpenFAST/fast.fmu` (preferred), or
+   - `fast.fmu` in the project root (fallback).
+
+2. Ensure the OpenFAST case folder exists at `test1002/` in the project root (the FMU selects it via `testNr=1002`).
+
+3. Run:
    ```bash
-   python casestudies/dyn_sim/test_WT_FMU_sim.py
+   python casestudies/dyn_sim/test_WT_FMU_drivetrain_sim.py
    ```
 
-   Results are written to `test_WT_FMU_sim_results.csv` in the project root.
+   Results are written to:
+   - `casestudies/dyn_sim/logs/fmu_drivetrain/fmu_drivetrain.csv`
+   - `casestudies/dyn_sim/logs/fmu_drivetrain/plots/`
 
 ## TOPS
 

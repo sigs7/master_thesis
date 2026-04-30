@@ -20,32 +20,32 @@ class FMUtoUICdrivetrain(DAEModel):
         }
 
         """
+        # extract params and make sure the format is correct
         par = self.par
         sn = par['S_n']
         sn[sn == 0] = self.sys_par['s_n']
         par['S_n'] = sn
-        self._sys_to_local = self.sys_par['s_n'] / par['S_n']
-        self._local_to_sys = par['S_n'] / self.sys_par['s_n']
-
-        rpm_to_rad_s = 2.0 * np.pi / 60.0
-        omega_rated_rpm = float(np.asarray(par['omega_m_rated']).ravel()[0])
-        self._omega_base_rpm = omega_rated_rpm
-        self._omega_base_rad_s = self._omega_base_rpm * rpm_to_rad_s
-
-        S_n_MVA = float(np.asarray(par['S_n']).ravel()[0])
-        self._S_base_W = S_n_MVA * 1e6
-        self._T_base_Nm = self._S_base_W / self._omega_base_rad_s
-  
         self._efficiency = float(np.asarray(par['efficiency']).ravel()[0])
-
+        self._fmu_dt = float(np.asarray(par['fmu_dt']).ravel()[0])
+        omega_rated_rpm = float(np.asarray(par['omega_m_rated']).ravel()[0])
         J_m = float(np.asarray(par['J_m']).ravel()[0])
         J_e = float(np.asarray(par['J_e']).ravel()[0])
-        self.H_m = 0.5 * J_m * self._omega_base_rad_s**2 / self._S_base_W
-        self.H_e = 0.5 * J_e * self._omega_base_rad_s**2 / self._S_base_W
-
-        # Convert drivetrain parameters to pu: K_pu = K/T_base, D_pu = D*omega_base/T_base
         K_SI = float(np.asarray(par['K']).ravel()[0])
         D_SI = float(np.asarray(par['D']).ravel()[0])
+
+        # create useful conversion factors
+        self._sys_to_local = self.sys_par['s_n'] / par['S_n']
+        self._local_to_sys = par['S_n'] / self.sys_par['s_n']
+        rpm_to_rad_s = 2.0 * np.pi / 60.0
+        self._omega_base_rpm = omega_rated_rpm
+        self._omega_base_rad_s = self._omega_base_rpm * rpm_to_rad_s
+        self._T_base_Nm = sn * 1e6 / self._omega_base_rad_s
+
+        # convert drivetrain params to pu
+        # H_pu = 1/2 * J_SI * omega_base^2 / S_base
+        self.H_m = 0.5 * J_m * self._omega_base_rad_s**2 / (sn * 1e6)
+        self.H_e = 0.5 * J_e * self._omega_base_rad_s**2 / (sn * 1e6)
+        #K_pu = K/T_base, D_pu = D*omega_base/T_base
         par['K'] = K_SI / self._T_base_Nm
         par['D'] = D_SI * self._omega_base_rad_s / self._T_base_Nm
 
@@ -80,15 +80,15 @@ class FMUtoUICdrivetrain(DAEModel):
 
         unzipdir = extract(fmu_file)
 
-        # IMPORTANT: OpenFAST-FMU reads wd.txt from inside the extracted FMU resources folder.
-        # Writing to an arbitrary path in the repo (par['wd_path']) will not affect what the FMU reads.
+        # OpenFAST fmu reads wd.txt from inside the extracted fmu resources folder
+        # Writing to an arbitrary path in the repo (par['wd_path']) will not affect what the fmu reads
         new_directory = str(np.atleast_1d(par['openfast_test_dir']).ravel()[0])
         wd_file_path_in_fmu = os.path.join(unzipdir, 'resources', 'wd.txt')
         os.makedirs(os.path.dirname(wd_file_path_in_fmu), exist_ok=True)
         with open(wd_file_path_in_fmu, 'w') as f:
             f.write(new_directory)
 
-        # Optional: also write to the user-provided path for visibility/debugging.
+        # also write to the user-provided path for visibility/debugging
         try:
             wd_file_path = str(np.atleast_1d(par['wd_path']).ravel()[0])
             if wd_file_path:
@@ -118,8 +118,7 @@ class FMUtoUICdrivetrain(DAEModel):
         print(f"[FMUtoUICdrivetrain] Using FMU: {fmu_file}", flush=True)
         fmu.setupExperiment(startTime=0.0)
         fmu.enterInitializationMode()
-        # Set case selection and coupling mode *during* FMU initialization.
-        # Many FMUs latch these values on exitInitializationMode().
+
         try:
             mode_rb = (fmu.getReal([vrs['Mode']])[0])
             testNr_rb = (fmu.getReal([vrs['testNr']])[0])
@@ -136,23 +135,17 @@ class FMUtoUICdrivetrain(DAEModel):
         self._mode_readback = float(mode_rb) if 'mode_rb' in locals() else np.nan
         self._testNr_write = float(testNr)
         self._testNr_readback = float(testNr_rb) if 'testNr_rb' in locals() else np.nan
-        if 'fmu_dt' not in par.dtype.names:
-            raise KeyError("FMUtoUICdrivetrain requires parameter 'fmu_dt' (s).")
-        self._fmu_dt = float(np.atleast_1d(par['fmu_dt']).ravel()[0])
         if not np.isfinite(self._fmu_dt) or self._fmu_dt <= 0.0:
             raise ValueError(f"Invalid 'fmu_dt'={self._fmu_dt}. Must be a positive finite float (s).")
         self._last_fmu_comm_point = None
         self._fmu_warm_stepped = False
-        # Cached OpenFAST measurements (updated once per TOPS step in step_fmu)
-        # Avoid reading FMU inside state_derivatives() since the solver may call it multiple times per step
+        # Cached fmu measurements (updated once per tops step in step_fmu)
+        # Avoid reading fmu inside state_derivatives() since the solver may call it multiple times per step
         self._omega_m_pu_meas = None
         self._Te_pu_cmd = None
         self._gen_speed_rpm_meas = None
         self._gen_tq_kNm_meas = None
-        # Debug/logging: last value written to FMU input GenSpdOrTrq (kN·m)
-        # This project uses GenSpdOrTrq as the generator torque command 
         self._gen_spdortrq_kNm_set = None
-        # Per-step input readbacks (for debugging/logging).
         self._genpwr_kW_readback = None
         self._gen_spdortrq_kNm_readback = None
         self._elec_pwr_com_kW_readback = None
@@ -166,6 +159,9 @@ class FMUtoUICdrivetrain(DAEModel):
             )
 
     def connections(self):
+        # tops convention of input and output to connected model; here uic is connected
+        # P_e is elec power output from uic, S_n_UIC is UIC base power: UIC -> FMUtoUICdrivetrain
+        # P_ref is the power reference for the UIC: FMUtoUICdrivetrain -> UIC
         return [
             {
                 'input': 'P_e',
@@ -197,7 +193,6 @@ class FMUtoUICdrivetrain(DAEModel):
         ]
 
     def state_list(self):
-        # omega_m is provided by OpenFAST (FMU) each step, not integrated in TOPS.
         return ['omega_e', 'theta_s']
 
     def input_list(self):
@@ -210,12 +205,12 @@ class FMUtoUICdrivetrain(DAEModel):
         self._input_values["P_e"] = self.P_e(x_0, v_0)
         self._input_values["S_n_UIC"] = self.S_n_UIC(x_0, v_0)
 
-        # Initialize drivetrain states from OpenFAST outputs.
+        # Initialize drivetrain states from fmu outputs
         X = self.local_view(x_0)
-        rot_rpm = float(self.fmu.getReal([self.vrs['RotSpeed']])[0])
-        gen_rpm = float(self.fmu.getReal([self.vrs['GenSpeed']])[0])
-        self._gen_tq_kNm_meas = float(self.fmu.getReal([self.vrs['GenTq']])[0])
-        self._gen_speed_rpm_meas = gen_rpm
+        rot_rpm = float(self.fmu.getReal([self.vrs['RotSpeed']])[0]) # get initial rotor speed from fmu
+        gen_rpm = float(self.fmu.getReal([self.vrs['GenSpeed']])[0]) # get initial generator speed from fmu
+        self._gen_tq_kNm_meas = float(self.fmu.getReal([self.vrs['GenTq']])[0]) # get initial generator torque from fmu
+        self._gen_speed_rpm_meas = gen_rpm # cache generator speed for next step
 
         eps_rpm = 1e-3
         if abs(rot_rpm) < eps_rpm and abs(gen_rpm) < eps_rpm:
@@ -295,7 +290,7 @@ class FMUtoUICdrivetrain(DAEModel):
         T_shaft = (K_pu * theta_s + D_pu * omega_s) # shaft twist torque
 
         # swing eqs for drivetrain dynamics (pu)
-        H_e = float(self.H_e)
+        H_e = float(np.asarray(self.H_e).ravel()[0])
         if not np.isfinite(T_shaft): # avoid simulations with NaN values
             raise ValueError(f"FMUtoUICdrivetrain: T_shaft is not finite (T_shaft={T_shaft}).")
         if not np.isfinite(Te_pu):
@@ -384,7 +379,8 @@ class FMUtoUICdrivetrain(DAEModel):
         Te_pu = Pe_pu / (eff * omega_e)
         self._Te_pu_cmd = Te_pu
         # Send generator torque command (kN·m) into OpenFAST-FMU
-        Te_kNm_cmd = float(Te_pu) * float(self._T_base_Nm) / 1e3
+        T_base_Nm = float(np.asarray(self._T_base_Nm).ravel()[0])
+        Te_kNm_cmd = float(Te_pu) * T_base_Nm / (1e3)
         self._gen_spdortrq_kNm_set = float(Te_kNm_cmd)
         self.fmu.setReal([self.vrs['GenSpdOrTrq']], [float(Te_kNm_cmd)])
         try:
