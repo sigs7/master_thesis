@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 240 # Simulation time
+    t_end = 120 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
@@ -243,7 +243,9 @@ if __name__ == '__main__':
         }
     )
 
-    out_path = os.path.join(project_root, 'casestudies', 'dyn_sim', 'test_WT_sim_results.csv')
+    log_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'wt')
+    os.makedirs(log_dir, exist_ok=True)
+    out_path = os.path.join(log_dir, 'wt_model.csv')
     out_df.to_csv(out_path, index=False)
     print(f"\nResults saved to {out_path} ({len(out_df.columns)} columns)")
 

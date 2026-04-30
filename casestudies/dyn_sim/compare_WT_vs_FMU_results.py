@@ -8,6 +8,18 @@ from matplotlib.ticker import ScalarFormatter
 
 PLOT_COLORS = ['blue', '#FF1493', 'orange', 'green']
 
+def _pick_latest_csv(script_dir: str, filename_glob: str) -> str:
+    """
+    Pick newest CSV (mtime) matching glob in this folder.
+    """
+    import glob
+
+    pattern = os.path.join(script_dir, filename_glob)
+    matches = glob.glob(pattern)
+    if not matches:
+        raise FileNotFoundError(f"No files matched: {pattern}")
+    return max(matches, key=lambda p: os.path.getmtime(p))
+
 
 def _ensure_increasing(t: np.ndarray) -> np.ndarray:
     t = np.asarray(t, dtype=float).ravel()
@@ -82,13 +94,19 @@ def main(argv: list[str] | None = None):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(script_dir))
 
-    wt_csv = os.path.join(project_root, 'casestudies', 'dyn_sim', 'test_WT_sim_results.csv')
-    fmu_csv = os.path.join(project_root, 'casestudies', 'dyn_sim', 'test_WT_FMU_drivetrain_sim_results.csv')
+    # Keep this dead simple: plot the stable "LATEST" CSV if present.
+    wt_csv = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'wt', 'wt_model.csv')
+    fmu_csv = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'fmu_drivetrain', 'fmu_drivetrain.csv')
+    print(f"Using WT CSV:  {wt_csv}")
+    print(f"Using FMU CSV: {fmu_csv}")
 
     if not os.path.exists(wt_csv):
         raise FileNotFoundError(f"Missing WT results CSV: {wt_csv}")
     if not os.path.exists(fmu_csv):
-        raise FileNotFoundError(f"Missing FMU results CSV: {fmu_csv}")
+        raise FileNotFoundError(
+            f"Missing FMU latest results CSV: {fmu_csv}\n"
+            "Run `casestudies/dyn_sim/test_WT_FMU_drivetrain_sim.py` once to generate it."
+        )
 
     wt = pd.read_csv(wt_csv)
     fmu = pd.read_csv(fmu_csv)
@@ -216,7 +234,7 @@ def main(argv: list[str] | None = None):
 
     fig.tight_layout()
 
-    plots_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'plots')
+    plots_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'fmu_drivetrain', 'plots')
     os.makedirs(plots_dir, exist_ok=True)
     out_png = os.path.join(plots_dir, 'compare_WT_vs_FMU_results.png')
     fig.savefig(out_png, dpi=180)

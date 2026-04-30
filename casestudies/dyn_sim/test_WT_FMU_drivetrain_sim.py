@@ -53,10 +53,13 @@ if __name__ == '__main__':
     result_dict = defaultdict(list)
     # Allow quick A/B interface tests without changing the file.
     # Example: set FMU_T_END=20 to run 20 seconds.xx
-    t_end = float(os.getenv('FMU_T_END', '240.0'))
+    t_end = float(os.getenv('FMU_T_END', '120.0'))
     dt = 0.01
     # Use dt=0.01 to match OpenFAST FMU (canHandleVariableCommunicationStepSize=false)
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0.0, x0, t_end, max_step=dt)
+    # Keep explicit current state variables (used for FMU-first co-simulation ordering).
+    x = x0
+    v = v0
 
     # Runtime storage (all FMU outputs from modelDescription.xml)
     P_e_stored = []
@@ -72,6 +75,12 @@ if __name__ == '__main__':
     GenSpdOrTrq_set_kNm_stored = []
     # Store the effective omega_m measurement used by the wrapper (pu)
     omega_m_pu_meas_stored = []
+    # Store scaled power inputs written to the FMU (debugging)
+    GenPwr_set_kW_stored = []
+    ElecPwrCom_set_kW_stored = []
+    GenPwr_readback_kW_stored = []
+    GenSpdOrTrq_readback_kNm_stored = []
+    ElecPwrCom_readback_kW_stored = []
 
     # Initial point
     t0 = time.perf_counter()
@@ -85,7 +94,7 @@ if __name__ == '__main__':
     # Short circuit parameters (modify reduced Ybus diagonal at the chosen bus)
     sc_bus_idx = ps.vsc['UIC_sig'].bus_idx_red['terminal'][0]
     run_sc = False
-    t_sc = 120.0
+    t_sc = 60.
     t_sc_dur = 0.05
     y_sc = 1e6
 
@@ -129,6 +138,25 @@ if __name__ == '__main__':
     else:
         omega_m_pu_meas_stored.append(np.nan)
 
+    if fmu_mdl is not None and hasattr(fmu_mdl, '_genpwr_kW_set'):
+        GenPwr_set_kW_stored.append(
+            float(fmu_mdl._genpwr_kW_set) if fmu_mdl._genpwr_kW_set is not None else np.nan
+        )
+    else:
+        GenPwr_set_kW_stored.append(np.nan)
+
+    if fmu_mdl is not None and hasattr(fmu_mdl, '_elec_pwr_com_kW_last'):
+        ElecPwrCom_set_kW_stored.append(
+            float(fmu_mdl._elec_pwr_com_kW_last) if fmu_mdl._elec_pwr_com_kW_last is not None else np.nan
+        )
+    else:
+        ElecPwrCom_set_kW_stored.append(np.nan)
+
+    # Seed readback arrays at the initial point (t=0) to match the time vector length.
+    GenPwr_readback_kW_stored.append(np.nan)
+    GenSpdOrTrq_readback_kNm_stored.append(np.nan)
+    ElecPwrCom_readback_kW_stored.append(np.nan)
+
     v_t_uic = uic_model.v_t(x0, v0)[0]
     v_bus.append(np.abs(v_t_uic))
 
@@ -147,6 +175,7 @@ if __name__ == '__main__':
         v = sol.v
         t = sol.t
 
+        # Step the FMU after the network/DAE step (more stable explicit coupling).
         for mdl in fmu_models:
             mdl.step_fmu(x, v, t, dt)
 
@@ -194,6 +223,41 @@ if __name__ == '__main__':
         else:
             omega_m_pu_meas_stored.append(np.nan)
 
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_genpwr_kW_set'):
+            GenPwr_set_kW_stored.append(
+                float(fmu_mdl._genpwr_kW_set) if fmu_mdl._genpwr_kW_set is not None else np.nan
+            )
+        else:
+            GenPwr_set_kW_stored.append(np.nan)
+
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_elec_pwr_com_kW_last'):
+            ElecPwrCom_set_kW_stored.append(
+                float(fmu_mdl._elec_pwr_com_kW_last) if fmu_mdl._elec_pwr_com_kW_last is not None else np.nan
+            )
+        else:
+            ElecPwrCom_set_kW_stored.append(np.nan)
+
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_genpwr_kW_readback'):
+            GenPwr_readback_kW_stored.append(
+                float(fmu_mdl._genpwr_kW_readback) if fmu_mdl._genpwr_kW_readback is not None else np.nan
+            )
+        else:
+            GenPwr_readback_kW_stored.append(np.nan)
+
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_gen_spdortrq_kNm_readback'):
+            GenSpdOrTrq_readback_kNm_stored.append(
+                float(fmu_mdl._gen_spdortrq_kNm_readback) if fmu_mdl._gen_spdortrq_kNm_readback is not None else np.nan
+            )
+        else:
+            GenSpdOrTrq_readback_kNm_stored.append(np.nan)
+
+        if fmu_mdl is not None and hasattr(fmu_mdl, '_elec_pwr_com_kW_readback'):
+            ElecPwrCom_readback_kW_stored.append(
+                float(fmu_mdl._elec_pwr_com_kW_readback) if fmu_mdl._elec_pwr_com_kW_readback is not None else np.nan
+            )
+        else:
+            ElecPwrCom_readback_kW_stored.append(np.nan)
+
         v_t_uic = uic_model.v_t(x, v)[0]
         v_bus.append(np.abs(v_t_uic))
 
@@ -233,6 +297,22 @@ if __name__ == '__main__':
     out_df['Te_cmd_kNm'] = np.asarray(Te_cmd_kNm_stored, dtype=float)
     out_df['GenSpdOrTrq_set_kNm'] = np.asarray(GenSpdOrTrq_set_kNm_stored, dtype=float)
     out_df['omega_m_pu_meas'] = np.asarray(omega_m_pu_meas_stored, dtype=float)
+    out_df['GenPwr_set_kW'] = np.asarray(GenPwr_set_kW_stored, dtype=float)
+    out_df['ElecPwrCom_set_kW'] = np.asarray(ElecPwrCom_set_kW_stored, dtype=float)
+    out_df['GenPwr_readback_kW'] = np.asarray(GenPwr_readback_kW_stored, dtype=float)
+    out_df['GenSpdOrTrq_readback_kNm'] = np.asarray(GenSpdOrTrq_readback_kNm_stored, dtype=float)
+    out_df['ElecPwrCom_readback_kW'] = np.asarray(ElecPwrCom_readback_kW_stored, dtype=float)
+
+    # Init-time readbacks (constant columns; useful to verify FMU latched init params)
+    if fmu_mdl is not None:
+        if hasattr(fmu_mdl, '_mode_write'):
+            out_df['Mode_write'] = float(fmu_mdl._mode_write)
+        if hasattr(fmu_mdl, '_mode_readback'):
+            out_df['Mode_readback'] = float(fmu_mdl._mode_readback)
+        if hasattr(fmu_mdl, '_testNr_write'):
+            out_df['testNr_write'] = float(fmu_mdl._testNr_write)
+        if hasattr(fmu_mdl, '_testNr_readback'):
+            out_df['testNr_readback'] = float(fmu_mdl._testNr_readback)
 
     # Optional: implied commanded mechanical power based on FMU-reported GenSpeed (kW) and Te_cmd_kNm
     # (kN·m * rad/s = kW)
@@ -240,24 +320,11 @@ if __name__ == '__main__':
         omega_gen = out_df['GenSpeed'].to_numpy(dtype=float) * 2.0 * np.pi / 60.0
         out_df['P_cmd_kW'] = out_df['Te_cmd_kNm'].to_numpy(dtype=float) * omega_gen
         out_df['P_cmd_pu'] = out_df['P_cmd_kW'].to_numpy(dtype=float) / (uic_s_n * 1e3)
-    # Allow multiple runs without overwriting results (useful for interface A/B tests).
-    # Tags:
-    # - FMU_GENSPDORTRQ_SCALE=... (scales GenSpdOrTrq input inside wrapper)
-    # - FMU_TORQUE_SCALE=... (legacy tag, kept for backwards compatibility)
-    tag_parts = []
-    gen_scale_tag = os.getenv('FMU_GENSPDORTRQ_SCALE', '').strip()
-    if gen_scale_tag:
-        tag_parts.append(f"genspdortrqscale_{gen_scale_tag}")
-    torque_scale_tag = os.getenv('FMU_TORQUE_SCALE', '').strip()
-    if torque_scale_tag:
-        tag_parts.append(f"torquescale_{torque_scale_tag}")
-    tag = f"_{'_'.join(tag_parts)}" if tag_parts else ""
-    out_path = os.path.join(
-        project_root,
-        'casestudies',
-        'dyn_sim',
-        f'test_WT_FMU_drivetrain_sim_results{tag}.csv',
-    )
+    # Logging directory (single artifact per run; always overwrite).
+    log_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'fmu_drivetrain')
+    os.makedirs(log_dir, exist_ok=True)
+
+    out_path = os.path.join(log_dir, 'fmu_drivetrain.csv')
     out_df.to_csv(out_path, index=False)
     print(f"\nResults saved to {out_path} ({len(out_df.columns)} columns)")
 
@@ -266,7 +333,7 @@ if __name__ == '__main__':
     PLOT_COLORS = ['blue', '#FF1493', 'orange', 'green']
 
     # Save one plot per exported signal (easy debugging)
-    plots_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'plots')
+    plots_dir = os.path.join(project_root, 'casestudies', 'dyn_sim', 'logs', 'fmu_drivetrain', 'plots')
     os.makedirs(plots_dir, exist_ok=True)
 
     for col in out_df.columns:
@@ -389,12 +456,33 @@ if __name__ == '__main__':
         _safe_legend(axes1b[1], loc='best', fontsize=8)
         axes1b[1].grid(True, alpha=0.3)
 
-        # Torques reported by OpenFAST
+        # Torques (kN·m). Note: GenSpdOrTrq_set_kNm is the *exact* value sent to the FMU input
+        # and may have an opposite sign convention to OpenFAST-reported torques.
         if 'GenTq' in df.columns:
             axes1b[2].plot(t_stored, df['GenTq'], label='GenTq (kN·m)', color=PLOT_COLORS[3], linewidth=1.2)
         if 'HSShftTq' in df.columns:
             axes1b[2].plot(
                 t_stored, df['HSShftTq'], '--', label='HSShftTq (kN·m)', color=PLOT_COLORS[2], linewidth=1.0
+            )
+        if 'GenSpdOrTrq_set_kNm' in out_df.columns:
+            axes1b[2].plot(
+                t_stored,
+                out_df['GenSpdOrTrq_set_kNm'],
+                ':',
+                label='GenSpdOrTrq sent (kN·m)',
+                color=PLOT_COLORS[1],
+                linewidth=1.0,
+                alpha=0.9,
+            )
+        if 'Te_cmd_kNm' in out_df.columns:
+            axes1b[2].plot(
+                t_stored,
+                out_df['Te_cmd_kNm'],
+                '-.',
+                label='Te_cmd (TOPS, kN·m)',
+                color='black',
+                linewidth=1.0,
+                alpha=0.8,
             )
         axes1b[2].set_ylabel('Torque (kN·m)')
         axes1b[2].set_xlabel('Time (s)')
