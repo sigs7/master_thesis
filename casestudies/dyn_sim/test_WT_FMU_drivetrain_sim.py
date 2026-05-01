@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     # UIC p_ref for power flow (FMU provides it during dynamics via connection)
     uic_model = ps.vsc['UIC_sig']
-    uic_model.par['p_ref'][:] = 1.0 * 1.5/2.
+    uic_model.par['p_ref'][:] = 0.0
     uic_model.par['q_ref'][:] = 0.0
 
     t0 = time.perf_counter()
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     result_dict = defaultdict(list)
     # Allow quick A/B interface tests without changing the file.
     # Example: set FMU_T_END=20 to run 20 seconds.xx
-    t_end = float(os.getenv('FMU_T_END', '120.0'))
+    t_end = float(os.getenv('FMU_T_END', '240.0'))
     dt = 0.01
     # Use dt=0.01 to match OpenFAST FMU (canHandleVariableCommunicationStepSize=false)
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0.0, x0, t_end, max_step=dt)
@@ -558,7 +558,9 @@ if __name__ == '__main__':
             omega_e_key = ('FMUtoUICdrivetrain1', 'omega_e')
             if omega_e_key in result.columns:
                 omega_e_arr = result[omega_e_key].to_numpy(dtype=float)
-                Te_out_pu = np.where(omega_e_arr != 0.0, Pe_loc_pu_arr / omega_e_arr, 0.0)
+                # Match drivetrain model logic exactly: divide if omega != 0 else 0
+                Te_out_pu = np.zeros_like(omega_e_arr, dtype=float)
+                np.divide(Pe_loc_pu_arr, omega_e_arr, out=Te_out_pu, where=(omega_e_arr != 0.0))
                 axes2[1].plot(
                     t_stored,
                     Te_out_pu,

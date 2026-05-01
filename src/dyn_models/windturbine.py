@@ -454,9 +454,9 @@ class WindTurbine(DAEModel):
         """Returns wind speed in m/s. Uses _sim_time (s) when set by sim loop, else 0 (init)."""
         t = getattr(self, '_sim_time', 0)
         if t < 120:
-            return 13.0
+            return 8.0
         else:
-            return 14.0
+            return 9.0
         """ if t < 30:
             return 8.0
         elif t < 60:

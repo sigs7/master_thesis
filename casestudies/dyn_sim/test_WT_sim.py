@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     t = 0
     result_dict = defaultdict(list)
-    t_end = 120 # Simulation time
+    t_end = 240 # Simulation time
 
     # Solver
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x0, t_end, max_step=5e-3)
